@@ -20,6 +20,9 @@ import {
 import { router } from 'expo-router';
 import { Button, Text, Card } from '@farm/ui';
 import { useAuth } from '@farm/api';
+import { useLocationPings } from '../src/hooks/useLocationPings';
+import { ProofOfDeliveryModal } from '../src/components/ProofOfDeliveryModal';
+import { PickupModal } from '../src/components/PickupModal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -122,10 +125,10 @@ interface StopCardProps {
   stop: RouteStop;
   isNext: boolean;
   onNavigate: (stop: RouteStop) => void;
-  onMarkDone: (stopId: string) => void;
+  onAction: (stop: RouteStop) => void;
 }
 
-function StopCard({ stop, isNext, onNavigate, onMarkDone }: StopCardProps) {
+function StopCard({ stop, isNext, onNavigate, onAction }: StopCardProps) {
   const isDone = stop.status === 'done';
   const color = stopTypeColor(stop.type);
   const bg = stopTypeBg(stop.type);
@@ -172,15 +175,15 @@ function StopCard({ stop, isNext, onNavigate, onMarkDone }: StopCardProps) {
         ))}
       </View>
 
-      {/* OTP hint for drops */}
+      {/* Demo OTP display for testing drops */}
       {stop.type === 'drop' && stop.otp && !isDone && (
         <View style={styles.otpBox}>
           <Text variant="label" style={{ color: '#7b1fa2' }}>
-            Delivery OTP
+            Customer OTP (Demo Code)
           </Text>
           <Text style={styles.otpValue}>{stop.otp}</Text>
           <Text variant="caption" style={{ color: '#7b1fa2', marginTop: 2 }}>
-            Share this with the customer to confirm receipt
+            In production, customer shares this upon delivery
           </Text>
         </View>
       )}
@@ -195,9 +198,9 @@ function StopCard({ stop, isNext, onNavigate, onMarkDone }: StopCardProps) {
             onPress={() => onNavigate(stop)}
           />
           <Button
-            label={stop.type === 'pickup' ? '✅ Picked Up' : '✅ Delivered'}
+            label={stop.type === 'pickup' ? '📦 Verify Pickup' : '📸 Deliver (Photo + OTP)'}
             style={styles.doneBtn}
-            onPress={() => onMarkDone(stop.id)}
+            onPress={() => onAction(stop)}
           />
         </View>
       )}
@@ -233,7 +236,58 @@ function MapBanner({ totalStops, doneStops }: { totalStops: number; doneStops: n
 export default function TodaysRouteScreen() {
   const { isAuthenticated, user, isLoading } = useAuth();
   const [stops, setStops] = useState<RouteStop[]>(MOCK_STOPS);
-  const [navigating, setNavigating] = useState<string | null>(null);
+  const [activeDeliveryStop, setActiveDeliveryStop] = useState<RouteStop | null>(null);
+  const [activePickupStop, setActivePickupStop] = useState<RouteStop | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [activeDeliveryStop, setActiveDeliveryStop] = useState<RouteStop | null>(null);
+  const [activePickupStop, setActivePickupStop] = useState<RouteStop | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Derived state
+  const doneCount = stops.filter(s => s.status === 'done').length;
+  const allDone = doneCount === stops.length;
+  const nextStop = stops.find(s => s.status === 'pending');
+
+  // Issue #7: Background location pings every 30s while route is active
+  const { isTracking, lastPingTime, pingCount, error: trackingError } = useLocationPings(!allDone);
+
+  const handleNavigate = useCallback(async (stop: RouteStop) => {
+    const url = mapsUrl(stop.lat, stop.lng, stop.label);
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Maps not available', 'Could not open Google Maps on this device.');
+      }
+    } catch {
+      Alert.alert('Navigation error', 'Failed to launch map navigation.');
+    }
+  }, []);
+
+  const handleStopAction = useCallback((stop: RouteStop) => {
+    if (stop.type === 'pickup') {
+      setActivePickupStop(stop);
+    } else {
+      setActiveDeliveryStop(stop);
+    }
+  }, []);
+
+  const handleStopSuccess = useCallback((stopId: string) => {
+    setStops(prev =>
+      prev.map(s => (s.id === stopId ? { ...s, status: 'done' } : s)),
+    );
+    setSuccessToast('Stop status updated successfully!');
+    setTimeout(() => setSuccessToast(null), 3500);
+  }, []);
+
+  // Derived state
+  const doneCount = stops.filter(s => s.status === 'done').length;
+  const allDone = doneCount === stops.length;
+  const nextStop = stops.find(s => s.status === 'pending');
+
+  // Issue #7: Background location pings every 30s while route is active
+  const { isTracking, lastPingTime, pingCount, error: trackingError } = useLocationPings(!allDone);
 
   // Guard: must be authenticated delivery partner
   if (isLoading) {
@@ -258,46 +312,6 @@ export default function TodaysRouteScreen() {
     );
   }
 
-  // Derived state
-  const doneCount = stops.filter(s => s.status === 'done').length;
-  const nextStop = stops.find(s => s.status === 'pending');
-
-  const handleNavigate = useCallback(async (stop: RouteStop) => {
-    const url = mapsUrl(stop.lat, stop.lng, stop.label);
-    setNavigating(stop.id);
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Maps not available', 'Could not open Google Maps on this device.');
-      }
-    } finally {
-      setNavigating(null);
-    }
-  }, []);
-
-  const handleMarkDone = useCallback((stopId: string) => {
-    Alert.alert(
-      'Confirm',
-      nextStop?.type === 'pickup'
-        ? 'Mark this pickup as collected?'
-        : 'Confirm delivery with OTP / photo?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () =>
-            setStops(prev =>
-              prev.map(s => (s.id === stopId ? { ...s, status: 'done' } : s)),
-            ),
-        },
-      ],
-    );
-  }, [nextStop]);
-
-  const allDone = doneCount === stops.length;
-
   return (
     <View style={styles.root}>
       {/* Header */}
@@ -306,7 +320,7 @@ export default function TodaysRouteScreen() {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text variant="h2" style={styles.headerTitle}>
-          Today's Route
+          {"Today's Route"}
         </Text>
         <View style={{ width: 36 }} />
       </View>
@@ -314,6 +328,43 @@ export default function TodaysRouteScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Map banner */}
         <MapBanner totalStops={stops.length} doneStops={doneCount} />
+
+        {/* Issue #7: 30-Second Location Tracking Status Banner */}
+        <View style={styles.trackingCard}>
+          <View style={styles.trackingHeader}>
+            <View
+              style={[
+                styles.trackingDot,
+                isTracking ? styles.trackingDotActive : styles.trackingDotInactive,
+              ]}
+            />
+            <Text style={styles.trackingTitle}>
+              {isTracking ? 'GPS Tracking Active' : 'GPS Tracking Paused'}
+            </Text>
+            <View style={styles.pingPill}>
+              <Text style={styles.pingPillText}>30s interval</Text>
+            </View>
+          </View>
+          <Text variant="caption" style={styles.trackingSubtitle}>
+            {isTracking
+              ? `Reporting coordinates to logistics dispatch · ${pingCount} pings sent${
+                  lastPingTime ? ` (last: ${lastPingTime})` : ''
+                }`
+              : 'Tracking resumes automatically when pending stops exist.'}
+          </Text>
+          {trackingError && (
+            <Text variant="caption" style={styles.trackingErrorText}>
+              ⚠️ {trackingError}
+            </Text>
+          )}
+        </View>
+
+        {/* Success Feedback Toast */}
+        {successToast && (
+          <View style={styles.toastBox}>
+            <Text style={styles.toastText}>🎉 {successToast}</Text>
+          </View>
+        )}
 
         {/* Route summary */}
         <View style={styles.summaryRow}>
@@ -349,12 +400,28 @@ export default function TodaysRouteScreen() {
             stop={stop}
             isNext={nextStop?.id === stop.id}
             onNavigate={handleNavigate}
-            onMarkDone={handleMarkDone}
+            onAction={handleStopAction}
           />
         ))}
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Issue #7: Proof of Delivery Modal (Photo + OTP) */}
+      <ProofOfDeliveryModal
+        visible={Boolean(activeDeliveryStop)}
+        stop={activeDeliveryStop}
+        onClose={() => setActiveDeliveryStop(null)}
+        onSuccess={handleStopSuccess}
+      />
+
+      {/* Issue #7: Pickup Confirmation Modal */}
+      <PickupModal
+        visible={Boolean(activePickupStop)}
+        stop={activePickupStop}
+        onClose={() => setActivePickupStop(null)}
+        onSuccess={handleStopSuccess}
+      />
     </View>
   );
 }
@@ -416,6 +483,79 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 2,
     color: '#555',
+  },
+
+  // Issue #7: GPS Tracking Card
+  trackingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  trackingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trackingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  trackingDotActive: {
+    backgroundColor: '#2e7d32',
+  },
+  trackingDotInactive: {
+    backgroundColor: '#9e9e9e',
+  },
+  trackingTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1b1b1b',
+    flex: 1,
+  },
+  pingPill: {
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pingPillText: {
+    color: '#2e7d32',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  trackingSubtitle: {
+    color: '#666',
+    marginTop: 4,
+  },
+  trackingErrorText: {
+    color: '#c62828',
+    marginTop: 4,
+  },
+
+  // Toast
+  toastBox: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#a5d6a7',
+    alignItems: 'center',
+  },
+  toastText: {
+    color: '#1b5e20',
+    fontWeight: '600',
+    fontSize: 13,
   },
 
   // Summary chips

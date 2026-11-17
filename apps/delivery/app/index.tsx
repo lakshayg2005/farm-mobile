@@ -64,7 +64,7 @@ export default function DeliveryHomeScreen() {
             • Pickups first, then drops — ordered by proximity
           </Text>
           <Text variant="caption" style={{ marginTop: 2 }}>
-            • Tap "Navigate" on each stop to open Google Maps
+            {'• Tap "Navigate" on each stop to open Google Maps'}
           </Text>
           <Text variant="caption" style={{ marginTop: 2 }}>
             • OTP displayed for contactless drop confirmation
