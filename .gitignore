@@ -12,4 +12,3 @@ coverage/
 .vscode/
 .idea/
 *.tsbuildinfo
-farm-backend
