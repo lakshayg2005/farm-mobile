@@ -1,6 +1,8 @@
 import type { ProduceListing, ProducePhoto, ListingSearchParams } from './types.ts';
 import { SEED_PRODUCE_LISTINGS } from './mockData.ts';
 
+type CatalogModule = typeof import('../../../../packages/api/src/catalog.ts');
+
 /** Calculate haversine distance in metres between two (lat, lng) points. */
 function haversineDistanceM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // radius of Earth in metres
@@ -24,7 +26,7 @@ function haversineDistanceM(lat1: number, lon1: number, lat2: number, lon2: numb
 export async function fetchNearbyProduce(params: ListingSearchParams): Promise<ProduceListing[]> {
   try {
     // Attempt dynamic API call if @farm/api or backend client is available
-    const apiModule: any = await import('../../../../packages/api/src/catalog.ts').catch(() => null);
+    const apiModule: CatalogModule | null = await import('../../../../packages/api/src/catalog.ts').catch(() => null);
     if (apiModule && typeof apiModule.searchListings === 'function') {
       const geoJson = await apiModule.searchListings(params);
       if (geoJson && Array.isArray(geoJson.features)) {
@@ -33,7 +35,7 @@ export async function fetchNearbyProduce(params: ListingSearchParams): Promise<P
           const p = f.properties;
           const coords = f.geometry?.coordinates ?? [params.lng, params.lat];
 
-          let photos: ProducePhoto[] = [];
+          const photos: ProducePhoto[] = [];
           if (p.mediaIds && p.mediaIds.length > 0 && typeof apiModule.getMedia === 'function') {
             try {
               const media = await apiModule.getMedia(p.mediaIds[0]);
@@ -98,10 +100,10 @@ export async function fetchNearbyProduce(params: ListingSearchParams): Promise<P
  */
 export async function fetchListingDetail(listingId: string): Promise<ProduceListing> {
   try {
-    const apiModule: any = await import('../../../../packages/api/src/catalog.ts').catch(() => null);
+    const apiModule: CatalogModule | null = await import('../../../../packages/api/src/catalog.ts').catch(() => null);
     if (apiModule && typeof apiModule.getListing === 'function') {
       const out = await apiModule.getListing(listingId);
-      let photos: ProducePhoto[] = [];
+      const photos: ProducePhoto[] = [];
       if (out.mediaIds && out.mediaIds.length > 0 && typeof apiModule.getMedia === 'function') {
         for (const mId of out.mediaIds) {
           try {

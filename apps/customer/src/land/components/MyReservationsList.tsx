@@ -22,7 +22,7 @@ export function MyReservationsList({
         <RNText style={styles.emptyIcon}>🌾</RNText>
         <Text variant="h2">No Active Reservations</Text>
         <Text variant="caption" style={styles.emptyText}>
-          You haven't reserved any farmland plots yet. Browse nearby plots to reserve land and track your own organic crop!
+          You haven&apos;t reserved any farmland plots yet. Browse nearby plots to reserve land and track your own organic crop!
         </Text>
         <Button label="Browse Farmland Plots" onPress={onExplorePlots} style={{ marginTop: 14 }} />
       </View>

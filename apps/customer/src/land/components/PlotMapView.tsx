@@ -3,7 +3,8 @@ import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native
 import { Button, Card, Text } from '@farm/ui';
 import { formatDistance } from '../../browse/format.ts';
 import { formatRupees } from '../../checkout/format.ts';
-import type { PlotItem, LocationCoords } from '../types.ts';
+import type { LocationCoords } from '../../browse/types.ts';
+import type { PlotItem } from '../types.ts';
 
 interface PlotMapViewProps {
   plots: PlotItem[];

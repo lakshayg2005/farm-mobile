@@ -5,10 +5,14 @@ interface TextProps {
   children: React.ReactNode;
   variant?: 'h1' | 'h2' | 'body' | 'caption' | 'label';
   style?: StyleProp<TextStyle>;
+  numberOfLines?: number;
 }
 
-export function Text({ children, variant = 'body', style }: TextProps) {
-  return <RNText style={[styles[variant], style]}>{children}</RNText>;
+export function Text({ children, variant = 'body', style, numberOfLines }: TextProps) {
+  return (
+    <RNText style={[styles[variant], style]} numberOfLines={numberOfLines}>{children}
+    </RNText>
+  );
 }
 
 const styles = StyleSheet.create({

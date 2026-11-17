@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Text, Card, Button } from '@farm/ui';
 import { useAuth } from '@farm/api';
 import { useCart } from '../src/checkout/cartStore.ts';
+import { usePushTokenRegistration } from './usePushToken';
 import {
   useProduceBrowse,
   ListingCard,
@@ -49,7 +50,8 @@ const SEASONS_LIST = [
 
 export default function CustomerHomeScreen() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated, accessToken } = useAuth();
+  usePushTokenRegistration(isAuthenticated ? accessToken : null);
   const cart = useCart();
 
   const [activeTab, setActiveTab] = useState<'produce' | 'land'>('produce');
@@ -78,7 +80,6 @@ export default function CustomerHomeScreen() {
   // Land State (Sprint 4)
   const {
     plots,
-    allPlotsCount,
     reservations,
     filters: landFilters,
     setFilters: setLandFilters,
@@ -135,12 +136,22 @@ export default function CustomerHomeScreen() {
             )}
           </TouchableOpacity>
 
+          {isAuthenticated && (
+            <TouchableOpacity
+              style={styles.profileButton}
+              accessibilityLabel="Notifications"
+              onPress={() => router.push('/notifications' as never)}
+            >
+              <RNText style={styles.profileIcon}>🔔</RNText>
+            </TouchableOpacity>
+          )}
+
           {/* User profile / login shortcut */}
           <TouchableOpacity
             style={styles.profileButton}
             onPress={() => {
               if (isAuthenticated) {
-                router.push('/orders' as any);
+                router.push('/orders' as never);
               } else {
                 router.push('/login');
               }

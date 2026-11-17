@@ -11,10 +11,7 @@ interface PlotCardProps {
   onViewDetails?: (plot: PlotItem) => void;
 }
 
-export function PlotCard({ plot, onReserve, onViewDetails }: PlotCardProps) {
-  const minPrice = Math.min(...plot.seasons.map((s) => s.pricePerKg), 0);
-  const activeSeason = plot.seasons[0];
-
+export function PlotCard({ plot, onReserve }: PlotCardProps) {
   return (
     <Card style={styles.card}>
       <View style={styles.topRow}>

@@ -1,6 +1,11 @@
 import type { PlotItem, ReservationItem, CropTimelineItem } from './types.ts';
 import { SEED_PLOTS, SEED_RESERVATIONS } from './mockData.ts';
 
+type LandModule = typeof import('../../../../packages/api/src/land.ts');
+type RawPlot = Awaited<ReturnType<LandModule['searchPlots']>>[number];
+type RawSeason = NonNullable<RawPlot['seasons']>[number];
+type RawReservation = Awaited<ReturnType<LandModule['getMyReservations']>>[number];
+
 function haversineDistanceM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
   const phi1 = (lat1 * Math.PI) / 180;
@@ -24,11 +29,11 @@ let localReservations: ReservationItem[] = [...SEED_RESERVATIONS];
  */
 export async function fetchPlots(lat: number, lng: number, radiusKm: number = 20): Promise<PlotItem[]> {
   try {
-    const landModule: any = await import('../../../../packages/api/src/land.ts').catch(() => null);
+    const landModule: LandModule | null = await import('../../../../packages/api/src/land.ts').catch(() => null);
     if (landModule && typeof landModule.searchPlots === 'function') {
       const data = await landModule.searchPlots({ lat, lng, radius_km: radiusKm });
       if (Array.isArray(data) && data.length > 0) {
-        return data.map((p: any) => {
+        return data.map((p: RawPlot) => {
           const coords = p.centroid?.coordinates ?? [lng, lat];
           const distanceM = haversineDistanceM(lat, lng, coords[1], coords[0]);
           return {
@@ -46,7 +51,7 @@ export async function fetchPlots(lat: number, lng: number, radiusKm: number = 20
             distanceM,
             centroid: [coords[0], coords[1]],
             boundary: p.boundary?.coordinates || [],
-            seasons: (p.seasons || []).map((s: any) => ({
+            seasons: (p.seasons || []).map((s: RawSeason) => ({
               id: s.id,
               plotId: s.plotId,
               season: s.season,
@@ -89,12 +94,12 @@ export async function fetchPlotDetail(plotId: string): Promise<PlotItem> {
  */
 export async function fetchCustomerReservations(): Promise<ReservationItem[]> {
   try {
-    const landModule: any = await import('../../../../packages/api/src/land.ts').catch(() => null);
+    const landModule: LandModule | null = await import('../../../../packages/api/src/land.ts').catch(() => null);
     if (landModule && typeof landModule.getMyReservations === 'function') {
       const data = await landModule.getMyReservations();
       if (Array.isArray(data) && data.length > 0) {
         // Map backend reservations
-        return data.map((r: any) => ({
+        return data.map((r: RawReservation) => ({
           id: r.id,
           plotId: r.plotSeasonId,
           plotTitle: r.plotTitle || 'Reserved Farmland Plot',
@@ -134,7 +139,7 @@ export async function submitPlotReservation(payload: {
   const deposit = Math.round(total * 0.2 * 100) / 100;
 
   try {
-    const landModule: any = await import('../../../../packages/api/src/land.ts').catch(() => null);
+    const landModule: LandModule | null = await import('../../../../packages/api/src/land.ts').catch(() => null);
     if (landModule && typeof landModule.createReservation === 'function') {
       await landModule.createReservation({
         plotSeasonId: season.id,

@@ -1,5 +1,10 @@
 import { client } from './client';
 
+/** The generated schema is still a stub for land, so these calls go through untyped helpers. */
+type RawResult = Promise<{ data?: unknown; error?: unknown; response: Response }>;
+const rawGet = client.GET as unknown as (path: string, init?: unknown) => RawResult;
+const rawPost = client.POST as unknown as (path: string, init?: unknown) => RawResult;
+
 export type SoilType = 'Clay' | 'Clay Loam' | 'Sandy Loam' | 'Black Cotton' | 'Alluvial' | 'Red Soil';
 export type WaterSource = 'Canal' | 'Borewell' | 'Drip Irrigation' | 'Canal + Tube Well' | 'Rainfed';
 export type ReservationStatus = 'PENDING' | 'ACCEPTED' | 'ACTIVE' | 'HARVEST_READY' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
@@ -100,9 +105,7 @@ export async function searchPlots(params: PlotSearchParams): Promise<PlotOut[]> 
   if (params.limit !== undefined) query.set('limit', String(params.limit));
   if (params.offset !== undefined) query.set('offset', String(params.offset));
 
-  const { data, error, response } = await client.GET(
-    (`/land/plots/search?${query.toString()}`) as unknown as '/land/plots/search',
-  );
+  const { data, error, response } = await rawGet(`/land/plots/search?${query.toString()}`);
 
   if (error || !data) {
     throw new Error(`Failed to search plots: ${response.status}`);
@@ -112,12 +115,7 @@ export async function searchPlots(params: PlotSearchParams): Promise<PlotOut[]> 
 
 /** Get plot details by ID */
 export async function getPlot(plotId: string): Promise<PlotOut> {
-  const { data, error, response } = await client.GET(
-    (`/land/plots/${plotId}`) as unknown as '/land/plots/{plot_id}',
-    {
-      params: { path: { plot_id: plotId } },
-    } as any,
-  );
+  const { data, error, response } = await rawGet(`/land/plots/${plotId}`);
 
   if (error || !data) {
     throw new Error(`Failed to get plot ${plotId}: ${response.status}`);
@@ -127,9 +125,7 @@ export async function getPlot(plotId: string): Promise<PlotOut> {
 
 /** Create a plot reservation */
 export async function createReservation(body: ReservationCreate): Promise<ReservationOut> {
-  const { data, error, response } = await client.POST('/land/reservations' as any, {
-    body,
-  } as any);
+  const { data, error, response } = await rawPost('/land/reservations', { body });
 
   if (error || !data) {
     throw new Error(`Failed to create reservation: ${response.status}`);
@@ -139,7 +135,7 @@ export async function createReservation(body: ReservationCreate): Promise<Reserv
 
 /** Get current customer's reservations */
 export async function getMyReservations(): Promise<ReservationOut[]> {
-  const { data, error, response } = await client.GET('/land/reservations/mine' as any);
+  const { data, error, response } = await rawGet('/land/reservations/mine');
   if (error || !data) {
     throw new Error(`Failed to get my reservations: ${response.status}`);
   }
@@ -148,12 +144,7 @@ export async function getMyReservations(): Promise<ReservationOut[]> {
 
 /** Get crop updates timeline for a reservation */
 export async function getCropUpdates(reservationId: string): Promise<CropUpdateOut[]> {
-  const { data, error, response } = await client.GET(
-    (`/land/reservations/${reservationId}/updates`) as unknown as '/land/reservations/{reservation_id}/updates',
-    {
-      params: { path: { reservation_id: reservationId } },
-    } as any,
-  );
+  const { data, error, response } = await rawGet(`/land/reservations/${reservationId}/updates`);
 
   if (error || !data) {
     throw new Error(`Failed to get crop updates: ${response.status}`);
@@ -163,12 +154,7 @@ export async function getCropUpdates(reservationId: string): Promise<CropUpdateO
 
 /** Cancel a pending reservation */
 export async function cancelReservation(reservationId: string): Promise<ReservationOut> {
-  const { data, error, response } = await client.POST(
-    (`/land/reservations/${reservationId}/cancel`) as unknown as '/land/reservations/{reservation_id}/cancel',
-    {
-      params: { path: { reservation_id: reservationId } },
-    } as any,
-  );
+  const { data, error, response } = await rawPost(`/land/reservations/${reservationId}/cancel`);
 
   if (error || !data) {
     throw new Error(`Failed to cancel reservation: ${response.status}`);

@@ -4,7 +4,7 @@
  * Usage: pnpm mock [spec-url-or-path]
  *
  * Defaults to the backend OpenAPI spec at http://localhost/api/v1/openapi.json
- * Runs on port 4010 so apps can point API_BASE_URL=http://localhost:4010/api/v1
+ * Runs on port 4010 so apps can point EXPO_PUBLIC_API_BASE_URL=http://localhost:4010/api/v1
  */
 const { execSync } = require('child_process');
 

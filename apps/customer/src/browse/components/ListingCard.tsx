@@ -34,7 +34,7 @@ export function ListingCard({ listing, onAddedToCart }: ListingCardProps) {
 
   const handleOpenDetail = () => {
     router.push({
-      pathname: '/listing-detail' as any,
+      pathname: '/listing-detail' as never,
       params: { id: listing.id },
     });
   };

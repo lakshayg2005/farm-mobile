@@ -16,8 +16,6 @@ const ALL_STAGES: CropStage[] = ['SOWN', 'GROWING', 'FLOWERING', 'HARVEST_READY'
 export function CropTimelineView({ reservation, onClose }: CropTimelineViewProps) {
   const [harvestChoice, setHarvestChoice] = useState<'DELIVERY' | 'BUYBACK' | null>(null);
 
-  const updatesByStage = new Map(reservation.updates.map((u) => [u.stage, u]));
-
   // Find active stage index
   const activeMeta = getStageMetadata(
     reservation.status === 'HARVEST_READY'
@@ -162,7 +160,7 @@ export function CropTimelineView({ reservation, onClose }: CropTimelineViewProps
           Growth Timeline & Field Updates
         </Text>
 
-        {reservation.updates.map((update, idx) => {
+        {reservation.updates.map((update) => {
           const meta = getStageMetadata(update.stage);
           return (
             <Card key={update.id} style={styles.updateCard}>
@@ -178,7 +176,7 @@ export function CropTimelineView({ reservation, onClose }: CropTimelineViewProps
 
               {update.note ? (
                 <Text variant="body" style={styles.updateNote}>
-                  "{update.note}"
+                  &ldquo;{update.note}&rdquo;
                 </Text>
               ) : null}
 

@@ -39,8 +39,8 @@ export function useLand(userLocation: LocationCoords) {
       ]);
       setPlots(fetchedPlots);
       setReservations(fetchedReservations);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load land data');
+    } catch (err: unknown) {
+      setError(err instanceof Error && err.message ? err.message : 'Failed to load land data');
     } finally {
       setIsLoading(false);
     }

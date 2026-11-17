@@ -1,5 +1,11 @@
 import { client } from './client';
 
+/** The generated schema is still a stub for catalog, so these calls go through an untyped GET. */
+const rawGet = client.GET as unknown as (
+  path: string,
+  init?: unknown,
+) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
+
 export type Grade = 'A' | 'B' | 'C';
 export type Unit = 'kg' | 'quintal' | 'dozen' | 'piece' | 'bunch' | 'litre';
 export type SearchSort = 'distance' | 'price' | 'newest';
@@ -122,8 +128,8 @@ export async function searchListings(params: ListingSearchParams): Promise<Listi
   if (params.limit !== undefined) query.set('limit', String(params.limit));
   if (params.cursor) query.set('cursor', params.cursor);
 
-  const { data, error, response } = await client.GET(
-    (`/catalog/listings/search?${query.toString()}`) as unknown as '/catalog/listings/search',
+  const { data, error, response } = await rawGet(
+    `/catalog/listings/search?${query.toString()}`,
   );
 
   if (error || !data) {
@@ -134,11 +140,8 @@ export async function searchListings(params: ListingSearchParams): Promise<Listi
 
 /** Get full listing detail by listing ID. */
 export async function getListing(listingId: string): Promise<ListingOut> {
-  const { data, error, response } = await client.GET(
-    (`/catalog/listings/${listingId}`) as unknown as '/catalog/listings/{listing_id}',
-    {
-      params: { path: { listing_id: listingId } },
-    } as any,
+  const { data, error, response } = await rawGet(
+    `/catalog/listings/${listingId}`,
   );
 
   if (error || !data) {
@@ -149,11 +152,8 @@ export async function getListing(listingId: string): Promise<ListingOut> {
 
 /** Get media details by media ID. */
 export async function getMedia(mediaId: string): Promise<MediaOut> {
-  const { data, error, response } = await client.GET(
-    (`/media/${mediaId}`) as unknown as '/media/{media_id}',
-    {
-      params: { path: { media_id: mediaId } },
-    } as any,
+  const { data, error, response } = await rawGet(
+    `/media/${mediaId}`,
   );
 
   if (error || !data) {

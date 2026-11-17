@@ -24,9 +24,17 @@ interface ReservationModalProps {
   onClose: () => void;
 }
 
-export function ReservationModal({ visible, plot, onConfirm, onClose }: ReservationModalProps) {
-  if (!plot) return null;
+export function ReservationModal(props: ReservationModalProps) {
+  const { plot } = props;
+  return plot ? <ReservationModalBody {...props} plot={plot} /> : null;
+}
 
+function ReservationModalBody({
+  visible,
+  plot,
+  onConfirm,
+  onClose,
+}: Omit<ReservationModalProps, 'plot'> & { plot: PlotItem }) {
   const [selectedSeason, setSelectedSeason] = useState<PlotSeasonItem>(plot.seasons[0]);
   const [selectedCrop, setSelectedCrop] = useState<string>(selectedSeason?.allowedCrops[0] || 'tomato');
   const [qtyKg, setQtyKg] = useState<string>('100');
