@@ -19,8 +19,15 @@ import {
   ProduceMapView,
   FilterSheet,
   POPULAR_DISTRICTS,
-  type LocationCoords,
 } from '../src/browse/index.ts';
+import {
+  useLand,
+  PlotCard,
+  PlotMapView,
+  ReservationModal,
+  CropTimelineView,
+  MyReservationsList,
+} from '../src/land/index.ts';
 
 const CROPS_LIST = [
   { id: 'ALL', label: 'All', emoji: '🌱' },
@@ -33,6 +40,13 @@ const CROPS_LIST = [
   { id: 'mango', label: 'Mango', emoji: '🥭' },
 ];
 
+const SEASONS_LIST = [
+  { id: 'ALL', label: 'All Seasons' },
+  { id: 'Rabi 2026-27', label: 'Rabi 2026-27' },
+  { id: 'Kharif 2026', label: 'Kharif 2026' },
+  { id: 'Zaid 2027', label: 'Zaid 2027' },
+];
+
 export default function CustomerHomeScreen() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
@@ -42,30 +56,46 @@ export default function CustomerHomeScreen() {
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
 
+  // Produce State (Sprint 2)
   const {
     userLocation,
     setUserLocation,
-    filters,
-    setFilters,
+    filters: produceFilters,
+    setFilters: setProduceFilters,
     setCropFilter,
-    resetFilters,
-    viewMode,
-    setViewMode,
+    resetFilters: resetProduceFilters,
+    viewMode: produceViewMode,
+    setViewMode: setProduceViewMode,
     listings,
-    totalCount,
-    isLoading,
-    error,
-    refresh,
-    toastMessage,
+    totalCount: produceTotalCount,
+    isLoading: produceLoading,
+    error: produceError,
+    refresh: refreshProduce,
+    toastMessage: produceToast,
     handleAddedToCart,
   } = useProduceBrowse();
 
-  const activeFilterCount =
-    (filters.organicOnly ? 1 : 0) +
-    (filters.minGrade !== 'ALL' ? 1 : 0) +
-    (filters.minPrice !== null ? 1 : 0) +
-    (filters.maxPrice !== null ? 1 : 0) +
-    (filters.radiusKm !== 15 ? 1 : 0);
+  // Land State (Sprint 4)
+  const {
+    plots,
+    allPlotsCount,
+    reservations,
+    filters: landFilters,
+    setFilters: setLandFilters,
+    viewMode: landViewMode,
+    setViewMode: setLandViewMode,
+    subTab: landSubTab,
+    setSubTab: setLandSubTab,
+    isLoading: landLoading,
+    error: landError,
+    refresh: refreshLand,
+    selectedPlotForReservation,
+    setSelectedPlotForReservation,
+    activeTimelineReservation,
+    setActiveTimelineReservation,
+    handleCreateReservation,
+    toastMessage: landToast,
+  } = useLand(userLocation);
 
   const cartItemCount = cart.items.reduce((sum, item) => sum + item.qty, 0);
 
@@ -75,7 +105,7 @@ export default function CustomerHomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text variant="h1" style={styles.appTitle}>
-            🥕 Farm Fresh
+            {activeTab === 'produce' ? '🥕 Farm Fresh' : '🌾 Farm Land'}
           </Text>
           <TouchableOpacity
             style={styles.locationPill}
@@ -146,7 +176,7 @@ export default function CustomerHomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* PRODUCE TAB CONTENT */}
+      {/* ================= PRODUCE TAB (Sprint 2) ================= */}
       {activeTab === 'produce' && (
         <View style={{ flex: 1 }}>
           {/* Search Bar & View Mode Switcher */}
@@ -157,12 +187,12 @@ export default function CustomerHomeScreen() {
                 style={styles.searchInput}
                 placeholder="Search produce, crop, or farm..."
                 placeholderTextColor="#999"
-                value={filters.query}
-                onChangeText={(text) => setFilters((prev) => ({ ...prev, query: text }))}
+                value={produceFilters.query}
+                onChangeText={(text) => setProduceFilters((prev) => ({ ...prev, query: text }))}
               />
-              {filters.query ? (
+              {produceFilters.query ? (
                 <TouchableOpacity
-                  onPress={() => setFilters((prev) => ({ ...prev, query: '' }))}
+                  onPress={() => setProduceFilters((prev) => ({ ...prev, query: '' }))}
                   style={styles.clearBtn}
                 >
                   <RNText style={styles.clearBtnText}>✕</RNText>
@@ -170,24 +200,23 @@ export default function CustomerHomeScreen() {
               ) : null}
             </View>
 
-            {/* Filter Sheet Trigger */}
+            {/* Filter Trigger */}
             <TouchableOpacity
-              style={[styles.filterTrigger, activeFilterCount > 0 && styles.filterTriggerActive]}
+              style={styles.filterTrigger}
               onPress={() => setFilterSheetVisible(true)}
             >
-              <RNText style={styles.filterTriggerText}>
-                ⚙ Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-              </RNText>
+              <RNText style={styles.filterTriggerText}>⚙ Filter</RNText>
             </TouchableOpacity>
 
-            {/* View Mode Toggle Button (List vs Map) */}
+            {/* View Mode Toggle (List vs Map) */}
             <TouchableOpacity
               style={styles.viewModeToggle}
-              onPress={() => setViewMode((prev) => (prev === 'list' ? 'map' : 'list'))}
-              accessibilityLabel={`Switch to ${viewMode === 'list' ? 'Map' : 'List'} view`}
+              onPress={() =>
+                setProduceViewMode((prev) => (prev === 'list' ? 'map' : 'list'))
+              }
             >
               <RNText style={styles.viewModeText}>
-                {viewMode === 'list' ? '🗺 Map' : '📋 List'}
+                {produceViewMode === 'list' ? '🗺 Map' : '📋 List'}
               </RNText>
             </TouchableOpacity>
           </View>
@@ -201,7 +230,7 @@ export default function CustomerHomeScreen() {
             >
               {CROPS_LIST.map((crop) => {
                 const isSelected =
-                  (crop.id === 'ALL' && !filters.crop) || filters.crop === crop.id;
+                  (crop.id === 'ALL' && !produceFilters.crop) || produceFilters.crop === crop.id;
                 return (
                   <TouchableOpacity
                     key={crop.id}
@@ -220,10 +249,10 @@ export default function CustomerHomeScreen() {
             </ScrollView>
           </View>
 
-          {/* Notification Toast Banner */}
-          {toastMessage && (
+          {/* Toast Banner */}
+          {produceToast && (
             <View style={styles.toastBanner}>
-              <RNText style={styles.toastText}>{toastMessage}</RNText>
+              <RNText style={styles.toastText}>{produceToast}</RNText>
               <TouchableOpacity onPress={() => router.push('/cart')}>
                 <RNText style={styles.toastLink}>View Cart →</RNText>
               </TouchableOpacity>
@@ -233,57 +262,38 @@ export default function CustomerHomeScreen() {
           {/* Results Summary Subheader */}
           <View style={styles.resultsSubheader}>
             <Text variant="caption">
-              {totalCount} {totalCount === 1 ? 'listing' : 'listings'} within {filters.radiusKm} km
-              {filters.organicOnly ? ' · Organic only' : ''}
+              {produceTotalCount} {produceTotalCount === 1 ? 'listing' : 'listings'} within {produceFilters.radiusKm} km
             </Text>
-            <TouchableOpacity onPress={refresh} style={styles.refreshBtn}>
+            <TouchableOpacity onPress={refreshProduce} style={styles.refreshBtn}>
               <RNText style={styles.refreshBtnText}>🔄 Refresh</RNText>
             </TouchableOpacity>
           </View>
 
-          {/* Content Area: List vs Map */}
-          {isLoading ? (
+          {/* Content Area */}
+          {produceLoading ? (
             <View style={styles.centerLoading}>
               <ActivityIndicator size="large" color="#2d6a4f" />
               <Text variant="caption" style={{ marginTop: 10 }}>
                 Finding produce near you...
               </Text>
             </View>
-          ) : error ? (
+          ) : produceError ? (
             <View style={styles.centerError}>
               <RNText style={styles.errorEmoji}>⚠️</RNText>
               <Text variant="h2">Something went wrong</Text>
-              <Text variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>
-                {error}
-              </Text>
-              <Button label="Try Again" onPress={refresh} style={{ marginTop: 12 }} />
+              <Text variant="caption">{produceError}</Text>
+              <Button label="Try Again" onPress={refreshProduce} style={{ marginTop: 12 }} />
             </View>
           ) : listings.length === 0 ? (
             <View style={styles.centerEmpty}>
               <RNText style={styles.emptyEmoji}>🔍</RNText>
               <Text variant="h2">No produce found</Text>
-              <Text variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>
-                No active produce matching your filters within {filters.radiusKm} km of {userLocation.name}.
-              </Text>
-              <Button
-                label="Reset Filters"
-                variant="secondary"
-                onPress={resetFilters}
-                style={{ marginTop: 16 }}
-              />
+              <Button label="Reset Filters" variant="secondary" onPress={resetProduceFilters} style={{ marginTop: 14 }} />
             </View>
-          ) : viewMode === 'list' ? (
-            <ScrollView
-              style={styles.listScrollView}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            >
+          ) : produceViewMode === 'list' ? (
+            <ScrollView style={styles.listScrollView} contentContainerStyle={styles.listContent}>
               {listings.map((item) => (
-                <ListingCard
-                  key={item.id}
-                  listing={item}
-                  onAddedToCart={handleAddedToCart}
-                />
+                <ListingCard key={item.id} listing={item} onAddedToCart={handleAddedToCart} />
               ))}
             </ScrollView>
           ) : (
@@ -296,53 +306,217 @@ export default function CustomerHomeScreen() {
         </View>
       )}
 
-      {/* LAND TAB CONTENT (Sprint 4 Preview) */}
+      {/* ================= LAND TAB (Sprint 4: Plots & Crop Timeline) ================= */}
       {activeTab === 'land' && (
-        <ScrollView contentContainerStyle={styles.landTabContainer}>
-          <Card style={styles.landCard}>
-            <RNText style={styles.landHeroEmoji}>🌾</RNText>
-            <Text variant="h1" style={{ textAlign: 'center' }}>
-              Farmland Reservation
-            </Text>
-            <Text variant="body" style={styles.landSubtitle}>
-              Reserve farm plots, select seasonal crops, track growth updates from farmers, and choose
-              fresh harvest delivery or direct buy-back!
-            </Text>
+        <View style={{ flex: 1 }}>
+          {/* Land Sub-Tabs Header */}
+          <View style={styles.landSubTabsBar}>
+            <TouchableOpacity
+              style={[styles.landSubTab, landSubTab === 'explore' && styles.landSubTabActive]}
+              onPress={() => {
+                setLandSubTab('explore');
+                setActiveTimelineReservation(null);
+              }}
+            >
+              <RNText
+                style={[
+                  styles.landSubTabText,
+                  landSubTab === 'explore' && styles.landSubTabTextActive,
+                ]}
+              >
+                🗺 Explore Plots ({plots.length})
+              </RNText>
+            </TouchableOpacity>
 
-            <View style={styles.landFeatureBox}>
-              <Text variant="label" style={{ fontWeight: '700' }}>
-                Planned for Sprint 4 (V2 Core)
-              </Text>
-              <RNText style={styles.landFeatureItem}>
-                • Interactive Plot Map Search with GeoJSON boundaries
+            <TouchableOpacity
+              style={[styles.landSubTab, landSubTab === 'my_reservations' && styles.landSubTabActive]}
+              onPress={() => setLandSubTab('my_reservations')}
+            >
+              <RNText
+                style={[
+                  styles.landSubTabText,
+                  landSubTab === 'my_reservations' && styles.landSubTabTextActive,
+                ]}
+              >
+                🌱 My Reservations ({reservations.length})
               </RNText>
-              <RNText style={styles.landFeatureItem}>
-                • Season Selection & Online Reservation Agreement
-              </RNText>
-              <RNText style={styles.landFeatureItem}>
-                • Crop Timeline & High-Res Inspection Progress
-              </RNText>
-              <RNText style={styles.landFeatureItem}>
-                • Harvest Delivery or Guaranteed Buy-Back Option
-              </RNText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Toast Notification */}
+          {landToast && (
+            <View style={styles.toastBanner}>
+              <RNText style={styles.toastText}>{landToast}</RNText>
             </View>
+          )}
 
-            <Button
-              label="← Back to Produce"
-              onPress={() => setActiveTab('produce')}
-              style={{ marginTop: 16 }}
-            />
-          </Card>
-        </ScrollView>
+          {/* SUBTAB 1: EXPLORE PLOTS */}
+          {landSubTab === 'explore' && (
+            <View style={{ flex: 1 }}>
+              {/* Search & View Mode Switcher */}
+              <View style={styles.searchSection}>
+                <View style={styles.searchBar}>
+                  <RNText style={styles.searchIcon}>🔍</RNText>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search plot title, soil, or crops..."
+                    placeholderTextColor="#999"
+                    value={landFilters.query}
+                    onChangeText={(text) => setLandFilters((prev) => ({ ...prev, query: text }))}
+                  />
+                  {landFilters.query ? (
+                    <TouchableOpacity
+                      onPress={() => setLandFilters((prev) => ({ ...prev, query: '' }))}
+                      style={styles.clearBtn}
+                    >
+                      <RNText style={styles.clearBtnText}>✕</RNText>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {/* View Mode Toggle (Map vs List) */}
+                <TouchableOpacity
+                  style={styles.viewModeToggle}
+                  onPress={() =>
+                    setLandViewMode((prev) => (prev === 'map' ? 'list' : 'map'))
+                  }
+                >
+                  <RNText style={styles.viewModeText}>
+                    {landViewMode === 'map' ? '📋 List' : '🗺 Map'}
+                  </RNText>
+                </TouchableOpacity>
+              </View>
+
+              {/* Season Filter Chips */}
+              <View style={styles.cropChipsWrapper}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.cropChipsScroll}
+                >
+                  {SEASONS_LIST.map((season) => {
+                    const isSelected =
+                      (season.id === 'ALL' && !landFilters.season) ||
+                      landFilters.season === season.id;
+                    return (
+                      <TouchableOpacity
+                        key={season.id}
+                        style={[styles.cropChip, isSelected && styles.cropChipSelected]}
+                        onPress={() =>
+                          setLandFilters((prev) => ({
+                            ...prev,
+                            season: season.id === 'ALL' ? null : season.id,
+                          }))
+                        }
+                      >
+                        <RNText
+                          style={[
+                            styles.cropChipLabel,
+                            isSelected && styles.cropChipLabelSelected,
+                          ]}
+                        >
+                          🗓 {season.label}
+                        </RNText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Content Area */}
+              {landLoading ? (
+                <View style={styles.centerLoading}>
+                  <ActivityIndicator size="large" color="#0f766e" />
+                  <Text variant="caption" style={{ marginTop: 10 }}>
+                    Finding agricultural plots near you...
+                  </Text>
+                </View>
+              ) : landError ? (
+                <View style={styles.centerError}>
+                  <RNText style={styles.errorEmoji}>⚠️</RNText>
+                  <Text variant="h2">Unable to load plots</Text>
+                  <Text variant="caption">{landError}</Text>
+                  <Button label="Try Again" onPress={refreshLand} style={{ marginTop: 12 }} />
+                </View>
+              ) : plots.length === 0 ? (
+                <View style={styles.centerEmpty}>
+                  <RNText style={styles.emptyEmoji}>🌾</RNText>
+                  <Text variant="h2">No plots match filters</Text>
+                  <Button
+                    label="Reset Filters"
+                    variant="secondary"
+                    onPress={() =>
+                      setLandFilters({
+                        query: '',
+                        season: null,
+                        crop: null,
+                        soilType: null,
+                        radiusKm: 25,
+                        minAcres: null,
+                        maxAcres: null,
+                        sort: 'distance',
+                      })
+                    }
+                    style={{ marginTop: 14 }}
+                  />
+                </View>
+              ) : landViewMode === 'map' ? (
+                <PlotMapView
+                  plots={plots}
+                  userLocation={userLocation}
+                  onReserve={(plot) => setSelectedPlotForReservation(plot)}
+                />
+              ) : (
+                <ScrollView style={styles.listScrollView} contentContainerStyle={styles.listContent}>
+                  {plots.map((plot) => (
+                    <PlotCard
+                      key={plot.id}
+                      plot={plot}
+                      onReserve={(p) => setSelectedPlotForReservation(p)}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          )}
+
+          {/* SUBTAB 2: MY RESERVATIONS & CROP TIMELINE */}
+          {landSubTab === 'my_reservations' && (
+            <View style={{ flex: 1 }}>
+              {activeTimelineReservation ? (
+                <CropTimelineView
+                  reservation={activeTimelineReservation}
+                  onClose={() => setActiveTimelineReservation(null)}
+                />
+              ) : (
+                <ScrollView style={styles.listScrollView} contentContainerStyle={styles.listContent}>
+                  <MyReservationsList
+                    reservations={reservations}
+                    onSelectReservation={(res) => setActiveTimelineReservation(res)}
+                    onExplorePlots={() => setLandSubTab('explore')}
+                  />
+                </ScrollView>
+              )}
+            </View>
+          )}
+        </View>
       )}
 
-      {/* Filter Modal Sheet */}
+      {/* Produce Filter Modal Sheet */}
       <FilterSheet
         visible={filterSheetVisible}
-        filters={filters}
-        onApply={(updated) => setFilters(updated)}
-        onReset={resetFilters}
+        filters={produceFilters}
+        onApply={(updated) => setProduceFilters(updated)}
+        onReset={resetProduceFilters}
         onClose={() => setFilterSheetVisible(false)}
+      />
+
+      {/* Plot Reservation Modal */}
+      <ReservationModal
+        visible={Boolean(selectedPlotForReservation)}
+        plot={selectedPlotForReservation}
+        onConfirm={handleCreateReservation}
+        onClose={() => setSelectedPlotForReservation(null)}
       />
 
       {/* District / Location Picker Modal */}
@@ -356,7 +530,7 @@ export default function CustomerHomeScreen() {
           <Card style={styles.locationModal}>
             <Text variant="h2">Select Location</Text>
             <Text variant="caption" style={{ marginTop: 2, marginBottom: 14 }}>
-              Choose a district to explore nearby fresh produce:
+              Choose a district to explore nearby produce & plots:
             </Text>
             {POPULAR_DISTRICTS.map((dist) => (
               <TouchableOpacity
@@ -504,6 +678,34 @@ const styles = StyleSheet.create({
     color: '#2d6a4f',
     fontWeight: '700',
   },
+  landSubTabsBar: {
+    flexDirection: 'row',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 8,
+  },
+  landSubTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  landSubTabActive: {
+    backgroundColor: '#0f766e',
+  },
+  landSubTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  landSubTabTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
   searchSection: {
     flexDirection: 'row',
     paddingHorizontal: 14,
@@ -549,10 +751,6 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  filterTriggerActive: {
-    backgroundColor: '#e6ede8',
-    borderColor: '#2d6a4f',
   },
   filterTriggerText: {
     fontSize: 12,
@@ -677,39 +875,6 @@ const styles = StyleSheet.create({
   emptyEmoji: {
     fontSize: 48,
     marginBottom: 8,
-  },
-  landTabContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  landCard: {
-    width: '100%',
-    maxWidth: 420,
-    alignItems: 'center',
-    padding: 20,
-    gap: 12,
-  },
-  landHeroEmoji: {
-    fontSize: 56,
-  },
-  landSubtitle: {
-    textAlign: 'center',
-    color: '#555',
-    lineHeight: 20,
-  },
-  landFeatureBox: {
-    width: '100%',
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 14,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  landFeatureItem: {
-    fontSize: 12,
-    color: '#475569',
-    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
