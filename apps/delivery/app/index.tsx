@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Button, Text, Card } from '@farm/ui';
@@ -59,19 +59,28 @@ export default function DeliveryHomeScreen() {
         </View>
 
         <View style={styles.routePreview}>
-          <Text variant="h2" style={{ fontSize: 16 }}>{"Today's Route (Sprint 3)"}</Text>
+          <Text variant="h2" style={{ fontSize: 16 }}>{"Today's Route"}</Text>
           <Text variant="caption" style={{ marginTop: 4 }}>
-            • Pooled stops with pickup and drop sequence
+            • Pickups first, then drops — ordered by proximity
           </Text>
           <Text variant="caption" style={{ marginTop: 2 }}>
-            • Contactless delivery proof (OTP + photo)
+            {'• Tap "Navigate" on each stop to open Google Maps'}
+          </Text>
+          <Text variant="caption" style={{ marginTop: 2 }}>
+            • OTP displayed for contactless drop confirmation
           </Text>
         </View>
 
         <Button
+          label="🗺️  View Today's Route"
+          style={{ marginTop: 16 }}
+          onPress={() => router.push('/route')}
+        />
+
+        <Button
           label="Log Out"
           variant="secondary"
-          style={{ marginTop: 20 }}
+          style={{ marginTop: 10 }}
           onPress={async () => {
             await logout();
           }}

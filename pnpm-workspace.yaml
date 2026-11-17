@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+overrides:
+  typescript: "~5.3.3"
+
+onlyBuiltDependencies:
+  - "@scarf/scarf"
+  - esbuild
+  - sharp

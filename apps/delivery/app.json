@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Farm Delivery",
+    "slug": "farm-delivery",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.farm.delivery"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#2d6a4f"
+      },
+      "package": "com.farm.delivery"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Farm Delivery to access your photos for proof of delivery.",
+          "cameraPermission": "Allow Farm Delivery to take photos for proof of delivery."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Farm Delivery to track your location every 30s while on an active route."
+        }
+      ]
+    ],
+    "scheme": "farmdelivery"
+  }
+}

@@ -14,19 +14,67 @@ React Native with Expo, TypeScript, Expo Router, TanStack Query, react-native-ma
 ```text
 apps/customer/      customer app (Produce + Land tabs)
 apps/delivery/      delivery partner app
-packages/ui/        shared components
-packages/api/       generated API client + auth
+packages/ui/        shared components (Button, Text, Card)
+packages/api/       generated API client + auth + Prism mock script
 ```
 
-## Workflow (all repos)
+## Getting Started
+
+### Prerequisites
+
+- Node 20+, pnpm 9+
+- Expo Go on your phone **or** an iOS/Android simulator
+
+### Install
+
+```bash
+pnpm install
+```
+
+### Run an app
+
+```bash
+# customer app
+cd apps/customer && pnpm start
+
+# delivery app
+cd apps/delivery && pnpm start
+```
+
+Scan the QR code with Expo Go (Android) or the Camera app (iOS).
+
+### Mock API server
+
+Spins up a Prism mock server on port 4010 from the backend OpenAPI spec:
+
+```bash
+pnpm mock
+# or against a local spec file:
+pnpm mock ./openapi.json
+```
+
+Then set `EXPO_PUBLIC_API_BASE_URL=http://localhost:4010/api/v1` in your `.env`.
+
+### Generate the API client
+
+```bash
+pnpm gen:api
+```
+
+Writes `packages/api/src/schema.d.ts` from the live spec. Commit the result.
+
+### Lint & type-check
+
+```bash
+pnpm lint
+pnpm type-check
+```
+
+## Workflow
 
 - `main` is protected: changes go in only through a pull request with 1 approval.
-- One issue per branch: `feat/<area>-<short-name>` or `fix/<area>-<short-name>`. Merge within 2 to 3 days.
+- One issue per branch: `feat/<area>-<short-name>` or `fix/<area>-<short-name>`. Merge within 2–3 days.
 - Commit messages follow Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`.
 - Squash-merge PRs and write `Closes #<issue>` in the PR description.
 - Never commit `.env`; copy `.env.example` instead.
-- Issues are labelled by team (`team-app` = Team 1, `team-web` = Team 2, `team-joint`) and by member slot (`M1`–`M4` Team 1, `M5`–`M8` Team 2). Pick your slot and assign yourself.
-
-## Getting started
-
-Setup instructions are added by the Sprint 1 scaffold issue.
+- Issues are labelled `team-app` (Team 1) and `team-web` (Team 2). Pick your slot (`M1`–`M4`) and assign yourself.

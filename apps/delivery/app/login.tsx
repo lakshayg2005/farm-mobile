@@ -1,4 +1,4 @@
-﻿import { router } from 'expo-router';
+import { router } from 'expo-router';
 import { SharedLoginScreen } from '@farm/ui';
 
 export default function DeliveryLoginScreen() {
