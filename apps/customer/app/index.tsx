@@ -20,7 +20,6 @@ import {
   ProduceMapView,
   FilterSheet,
   POPULAR_DISTRICTS,
-  type LocationCoords,
 } from '../src/browse/index.ts';
 
 const CROPS_LIST = [
@@ -36,7 +35,7 @@ const CROPS_LIST = [
 
 export default function CustomerHomeScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, accessToken } = useAuth();
+  const { isAuthenticated, accessToken } = useAuth();
   usePushTokenRegistration(isAuthenticated ? accessToken : null);
   const cart = useCart();
 
@@ -111,7 +110,7 @@ export default function CustomerHomeScreen() {
             <TouchableOpacity
               style={styles.profileButton}
               accessibilityLabel="Notifications"
-              onPress={() => router.push('/notifications' as any)}
+              onPress={() => router.push('/notifications' as never)}
             >
               <RNText style={styles.profileIcon}>🔔</RNText>
             </TouchableOpacity>
@@ -122,7 +121,7 @@ export default function CustomerHomeScreen() {
             style={styles.profileButton}
             onPress={() => {
               if (isAuthenticated) {
-                router.push('/orders' as any);
+                router.push('/orders' as never);
               } else {
                 router.push('/login');
               }

@@ -237,7 +237,7 @@ export default function NotificationsScreen() {
             <Text style={styles.emptyEmoji}>🔔</Text>
             <Text variant="h2" style={{ textAlign: 'center', marginTop: 8 }}>All caught up!</Text>
             <Text variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>
-              No notifications yet. We'll let you know when something happens.
+              No notifications yet. We&apos;ll let you know when something happens.
             </Text>
           </Card>
         ) : (

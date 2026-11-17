@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Text as RNText } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Card, Text } from '@farm/ui';
-import { formatDistance, formatRupees } from '../../checkout/format.ts';
+import { formatRupees } from '../../checkout/format.ts';
+import { formatDistance } from '../format.ts';
 import { addToCart } from '../../checkout/cartStore.ts';
 import { VerifiedBadge } from './VerifiedBadge.tsx';
 import type { ProduceListing, LocationCoords } from '../types.ts';
@@ -37,7 +38,7 @@ export function ProduceMapView({ listings, userLocation, onAddedToCart }: Produc
 
   const handleOpenDetail = (listing: ProduceListing) => {
     router.push({
-      pathname: '/listing-detail' as any,
+      pathname: '/listing-detail' as never,
       params: { id: listing.id },
     });
   };

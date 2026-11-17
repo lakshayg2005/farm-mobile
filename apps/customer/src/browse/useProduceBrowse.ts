@@ -44,8 +44,8 @@ export function useProduceBrowse() {
         organic: filters.organicOnly ? true : undefined,
       });
       setListings(data);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load produce listings');
+    } catch (err: unknown) {
+      setError(err instanceof Error && err.message ? err.message : 'Failed to load produce listings');
     } finally {
       setIsLoading(false);
     }
