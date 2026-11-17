@@ -5,3 +5,4 @@ export * from './types/auth';
 export * from './auth/storage';
 export * from './auth/service';
 export * from './auth/context';
+export * from './catalog';
