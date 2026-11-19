@@ -1,12 +1,10 @@
 /**
- * Issue #5 – Customer app: order list + order status timeline + notifications inbox + push
- *
- * Screen 1 of 3: Orders List
- * Shows all past and active orders grouped by status.
- * Tapping an order navigates to its detail/timeline screen.
+ * Customer app: Orders list (farm-mobile #5, real data in #27).
+ * The signed-in customer's orders from the order service, active ones first.
+ * Tapping an order opens its detail and status timeline.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   ScrollView,
@@ -18,120 +16,16 @@ import {
 import { router } from 'expo-router';
 import { Button, Text, Card } from '@farm/ui';
 import { useAuth } from '@farm/api';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type OrderStatus =
-  | 'placed'
-  | 'confirmed'
-  | 'packed'
-  | 'ready_for_dispatch'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'cancelled';
-
-export interface OrderItem {
-  listingId: string;
-  name: string;
-  qty: number;
-  unit: string;
-  unitPrice: number;
-}
-
-export interface Order {
-  orderId: string;
-  orderType: 'PRODUCE' | 'HARVEST';
-  status: OrderStatus;
-  placedAt: string;        // ISO date string
-  deliveryDate: string;    // ISO date string
-  total: number;
-  currency: string;
-  items: OrderItem[];
-  farmName: string;
-  deliveryAddress: string;
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-export const MOCK_ORDERS: Order[] = [
-  {
-    orderId: 'ord-001',
-    orderType: 'PRODUCE',
-    status: 'out_for_delivery',
-    placedAt: '2026-11-16T08:30:00Z',
-    deliveryDate: '2026-11-17',
-    total: 320,
-    currency: 'INR',
-    farmName: 'Greenfield Organics',
-    deliveryAddress: 'Flat 304, Orchid Heights, Sector 56, Gurugram',
-    items: [
-      { listingId: 'l1', name: 'Tomatoes', qty: 2, unit: 'kg', unitPrice: 60 },
-      { listingId: 'l2', name: 'Spinach', qty: 1, unit: 'bunch', unitPrice: 40 },
-      { listingId: 'l3', name: 'Potatoes', qty: 3, unit: 'kg', unitPrice: 40 },
-    ],
-  },
-  {
-    orderId: 'ord-002',
-    orderType: 'PRODUCE',
-    status: 'packed',
-    placedAt: '2026-11-15T14:00:00Z',
-    deliveryDate: '2026-11-18',
-    total: 185,
-    currency: 'INR',
-    farmName: 'Sunrise Agro',
-    deliveryAddress: 'Flat 304, Orchid Heights, Sector 56, Gurugram',
-    items: [
-      { listingId: 'l4', name: 'Carrots', qty: 2, unit: 'kg', unitPrice: 50 },
-      { listingId: 'l5', name: 'Onions', qty: 1, unit: 'kg', unitPrice: 30 },
-      { listingId: 'l6', name: 'Coriander', qty: 3, unit: 'bunch', unitPrice: 15 },
-    ],
-  },
-  {
-    orderId: 'ord-003',
-    orderType: 'PRODUCE',
-    status: 'delivered',
-    placedAt: '2026-11-10T09:00:00Z',
-    deliveryDate: '2026-11-11',
-    total: 540,
-    currency: 'INR',
-    farmName: 'Greenfield Organics',
-    deliveryAddress: 'Flat 304, Orchid Heights, Sector 56, Gurugram',
-    items: [
-      { listingId: 'l7', name: 'Wheat Flour', qty: 5, unit: 'kg', unitPrice: 60 },
-      { listingId: 'l8', name: 'Rice', qty: 2, unit: 'kg', unitPrice: 90 },
-    ],
-  },
-  {
-    orderId: 'ord-004',
-    orderType: 'PRODUCE',
-    status: 'cancelled',
-    placedAt: '2026-11-08T11:00:00Z',
-    deliveryDate: '2026-11-09',
-    total: 120,
-    currency: 'INR',
-    farmName: 'Sunrise Agro',
-    deliveryAddress: 'Flat 304, Orchid Heights, Sector 56, Gurugram',
-    items: [
-      { listingId: 'l9', name: 'Brinjal', qty: 1, unit: 'kg', unitPrice: 40 },
-      { listingId: 'l10', name: 'Okra', qty: 1, unit: 'kg', unitPrice: 80 },
-    ],
-  },
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-export const STATUS_META: Record<
-  OrderStatus,
-  { label: string; color: string; bg: string; emoji: string }
-> = {
-  placed:             { label: 'Order Placed',       color: '#1565c0', bg: '#e3f2fd', emoji: '🧾' },
-  confirmed:          { label: 'Confirmed',           color: '#6a1b9a', bg: '#f3e5f5', emoji: '✅' },
-  packed:             { label: 'Packed',              color: '#e65100', bg: '#fff3e0', emoji: '📦' },
-  ready_for_dispatch: { label: 'Ready to Dispatch',  color: '#f9a825', bg: '#fffde7', emoji: '🚜' },
-  out_for_delivery:   { label: 'Out for Delivery',   color: '#00695c', bg: '#e0f2f1', emoji: '🚚' },
-  delivered:          { label: 'Delivered',           color: '#2d6a4f', bg: '#e8f5e9', emoji: '🎉' },
-  cancelled:          { label: 'Cancelled',           color: '#c62828', bg: '#ffebee', emoji: '❌' },
-};
+import type { OrderStatus, OrderSummary } from '@farm/api/src/order';
+import {
+  STATUS_META,
+  itemsLabel,
+  orderTitle,
+  rupees,
+  shortId,
+  splitOrders,
+  useOrders,
+} from '../src/orders/index.ts';
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -151,32 +45,29 @@ function StatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order }: { order: OrderSummary }) {
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={() => router.push(`/order-detail?id=${order.orderId}`)}
+      onPress={() => router.push({ pathname: '/order-detail', params: { id: order.id } })}
     >
       <Card style={styles.orderCard}>
-        {/* Top row */}
         <View style={styles.cardTop}>
           <View style={{ flex: 1 }}>
             <Text variant="label" style={styles.farmName}>
-              {order.farmName}
+              {orderTitle(order)}
             </Text>
             <Text variant="caption" style={{ marginTop: 2 }}>
-              Placed {formatDate(order.placedAt)}
+              {shortId(order.id)} · Placed {formatDate(order.createdAt)}
             </Text>
           </View>
-          <Text style={styles.amount}>₹{order.total}</Text>
+          <Text style={styles.amount}>{rupees(order.total)}</Text>
         </View>
 
-        {/* Items summary */}
         <Text variant="caption" style={styles.itemsSummary}>
-          {order.items.map(i => `${i.name} ×${i.qty}${i.unit}`).join(' · ')}
+          {itemsLabel(order.itemCount)}
         </Text>
 
-        {/* Status */}
         <View style={styles.statusRow}>
           <StatusBadge status={order.status} />
           <Text variant="caption" style={styles.chevron}>›</Text>
@@ -190,13 +81,8 @@ function OrderCard({ order }: { order: Order }) {
 
 export default function OrdersScreen() {
   const { isAuthenticated, user, isLoading } = useAuth();
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Simulate API refresh
-    setTimeout(() => setRefreshing(false), 1200);
-  };
+  const isCustomer = isAuthenticated && !!user?.roles?.includes('customer');
+  const list = useOrders();
 
   if (isLoading) {
     return (
@@ -206,7 +92,7 @@ export default function OrdersScreen() {
     );
   }
 
-  if (!isAuthenticated || !user?.roles?.includes('customer')) {
+  if (!isCustomer) {
     return (
       <View style={styles.center}>
         <Text variant="body">Please log in as a customer to view orders.</Text>
@@ -220,12 +106,7 @@ export default function OrdersScreen() {
     );
   }
 
-  const activeOrders = MOCK_ORDERS.filter(
-    o => o.status !== 'delivered' && o.status !== 'cancelled',
-  );
-  const pastOrders = MOCK_ORDERS.filter(
-    o => o.status === 'delivered' || o.status === 'cancelled',
-  );
+  const { active, past } = splitOrders(list.orders);
 
   return (
     <View style={styles.root}>
@@ -246,27 +127,45 @@ export default function OrdersScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2d6a4f" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={list.isRefetching && !list.isFetchingNextPage}
+            onRefresh={() => list.refetch()}
+            tintColor="#2d6a4f"
+          />
+        }
       >
-        {/* Active orders */}
-        {activeOrders.length > 0 && (
+        {list.isPending && (
+          <ActivityIndicator size="large" color="#2d6a4f" style={{ marginTop: 48 }} />
+        )}
+
+        {list.isError && (
+          <Card style={styles.emptyCard}>
+            <Text variant="h2" style={{ textAlign: 'center' }}>Could not load your orders</Text>
+            <Text variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>
+              Check your connection and try again.
+            </Text>
+            <Button label="Try again" style={{ marginTop: 16 }} onPress={() => list.refetch()} />
+          </Card>
+        )}
+
+        {active.length > 0 && (
           <>
             <Text variant="label" style={styles.sectionLabel}>Active Orders</Text>
-            {activeOrders.map(o => <OrderCard key={o.orderId} order={o} />)}
+            {active.map(o => <OrderCard key={o.id} order={o} />)}
           </>
         )}
 
-        {/* Past orders */}
-        {pastOrders.length > 0 && (
+        {past.length > 0 && (
           <>
             <Text variant="label" style={[styles.sectionLabel, { marginTop: 8 }]}>
               Past Orders
             </Text>
-            {pastOrders.map(o => <OrderCard key={o.orderId} order={o} />)}
+            {past.map(o => <OrderCard key={o.id} order={o} />)}
           </>
         )}
 
-        {MOCK_ORDERS.length === 0 && (
+        {list.isSuccess && list.orders.length === 0 && (
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🛒</Text>
             <Text variant="h2" style={{ textAlign: 'center', marginTop: 8 }}>No orders yet</Text>
@@ -274,6 +173,16 @@ export default function OrdersScreen() {
               Browse produce and place your first order!
             </Text>
           </Card>
+        )}
+
+        {list.hasNextPage && (
+          <Button
+            label={list.isFetchingNextPage ? 'Loading…' : 'Load more orders'}
+            variant="secondary"
+            disabled={list.isFetchingNextPage}
+            style={{ marginTop: 4 }}
+            onPress={() => list.fetchNextPage()}
+          />
         )}
 
         <View style={{ height: 32 }} />

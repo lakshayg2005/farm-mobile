@@ -1,13 +1,10 @@
 /**
- * Issue #5 – Customer app: order list + order status timeline + notifications inbox + push
- *
- * Screen 3 of 3: Notifications Inbox
- * Lists in-app notifications from the notification service.
- * Unread count badge shown on entry point (bell icon in orders screen).
- * Push token registration is handled in the useNotifications hook (see @farm/api).
+ * Customer app: Notifications inbox (farm-mobile #5, real data in #27).
+ * The signed-in user's in-app notifications from the notification service, newest first.
+ * Opening one marks it read; order notifications open that order.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   ScrollView,
@@ -19,96 +16,8 @@ import {
 import { router } from 'expo-router';
 import { Button, Text, Card } from '@farm/ui';
 import { useAuth } from '@farm/api';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type NotifKind =
-  | 'order_placed'
-  | 'order_confirmed'
-  | 'order_packed'
-  | 'order_out_for_delivery'
-  | 'order_delivered'
-  | 'order_cancelled'
-  | 'promo';
-
-interface AppNotification {
-  id: string;
-  kind: NotifKind;
-  title: string;
-  body: string;
-  createdAt: string;    // ISO timestamp
-  readAt: string | null;
-  orderId?: string;
-}
-
-// ─── Mock notifications ───────────────────────────────────────────────────────
-
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: 'n1',
-    kind: 'order_out_for_delivery',
-    title: '🚚 Order Out for Delivery',
-    body: 'Your order from Greenfield Organics is on its way! Expect delivery today.',
-    createdAt: '2026-11-17T07:00:00Z',
-    readAt: null,
-    orderId: 'ord-001',
-  },
-  {
-    id: 'n2',
-    kind: 'order_packed',
-    title: '📦 Order Packed',
-    body: 'Your order from Sunrise Agro is packed and ready. Dispatch expected tomorrow.',
-    createdAt: '2026-11-16T16:30:00Z',
-    readAt: null,
-    orderId: 'ord-002',
-  },
-  {
-    id: 'n3',
-    kind: 'order_delivered',
-    title: '🎉 Order Delivered',
-    body: 'Your order from Greenfield Organics was delivered successfully. Enjoy your fresh produce!',
-    createdAt: '2026-11-11T13:00:00Z',
-    readAt: '2026-11-11T14:00:00Z',
-    orderId: 'ord-003',
-  },
-  {
-    id: 'n4',
-    kind: 'order_placed',
-    title: '🧾 Order Confirmed',
-    body: 'We received your order from Greenfield Organics (₹540). It will be processed shortly.',
-    createdAt: '2026-11-10T09:05:00Z',
-    readAt: '2026-11-10T10:00:00Z',
-    orderId: 'ord-003',
-  },
-  {
-    id: 'n5',
-    kind: 'promo',
-    title: '🌾 Fresh Arrivals This Week',
-    body: 'Winter vegetables are now available from farms near you. Check the produce tab!',
-    createdAt: '2026-11-14T08:00:00Z',
-    readAt: '2026-11-14T09:00:00Z',
-  },
-  {
-    id: 'n6',
-    kind: 'order_cancelled',
-    title: '❌ Order Cancelled',
-    body: 'Your order from Sunrise Agro (₹120) was cancelled. No charges were applied.',
-    createdAt: '2026-11-08T12:00:00Z',
-    readAt: '2026-11-08T13:00:00Z',
-    orderId: 'ord-004',
-  },
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import type { AppNotification } from '@farm/api/src/notification';
+import { notificationOrderId, timeAgo, useNotifications } from '../src/orders/index.ts';
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
@@ -120,11 +29,12 @@ function NotifCard({
   onRead: (id: string) => void;
 }) {
   const isUnread = !notif.readAt;
+  const orderId = notificationOrderId(notif.payload);
 
   const handlePress = () => {
     if (isUnread) onRead(notif.id);
-    if (notif.orderId) {
-      router.push(`/order-detail?id=${notif.orderId}`);
+    if (orderId) {
+      router.push({ pathname: '/order-detail', params: { id: orderId } });
     }
   };
 
@@ -152,7 +62,7 @@ function NotifCard({
               {timeAgo(notif.createdAt)}
             </Text>
           </View>
-          {notif.orderId && (
+          {orderId && (
             <Text style={styles.chevron}>›</Text>
           )}
         </View>
@@ -165,26 +75,8 @@ function NotifCard({
 
 export default function NotificationsScreen() {
   const { isAuthenticated, user, isLoading } = useAuth();
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const unreadCount = notifications.filter(n => !n.readAt).length;
-
-  const markRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
-    );
-  };
-
-  const markAllRead = () => {
-    const now = new Date().toISOString();
-    setNotifications(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? now })));
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+  const inbox = useNotifications();
+  const { notifications, unreadCount } = inbox;
 
   if (isLoading) {
     return (
@@ -219,7 +111,7 @@ export default function NotificationsScreen() {
           )}
         </View>
         {unreadCount > 0 ? (
-          <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
+          <TouchableOpacity onPress={() => inbox.markAllRead.mutate()} style={styles.markAllBtn}>
             <Text style={styles.markAllText}>Mark all read</Text>
           </TouchableOpacity>
         ) : (
@@ -230,9 +122,25 @@ export default function NotificationsScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2d6a4f" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={inbox.isRefetching && !inbox.isFetchingNextPage}
+            onRefresh={() => inbox.refetch()}
+            tintColor="#2d6a4f"
+          />
+        }
       >
-        {notifications.length === 0 ? (
+        {inbox.isPending ? (
+          <ActivityIndicator size="large" color="#2d6a4f" style={{ marginTop: 48 }} />
+        ) : inbox.isError ? (
+          <Card style={styles.emptyCard}>
+            <Text variant="h2" style={{ textAlign: 'center' }}>Could not load notifications</Text>
+            <Text variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>
+              Check your connection and try again.
+            </Text>
+            <Button label="Try again" style={{ marginTop: 16 }} onPress={() => inbox.refetch()} />
+          </Card>
+        ) : notifications.length === 0 ? (
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🔔</Text>
             <Text variant="h2" style={{ textAlign: 'center', marginTop: 8 }}>All caught up!</Text>
@@ -242,8 +150,18 @@ export default function NotificationsScreen() {
           </Card>
         ) : (
           notifications.map(n => (
-            <NotifCard key={n.id} notif={n} onRead={markRead} />
+            <NotifCard key={n.id} notif={n} onRead={id => inbox.markRead.mutate(id)} />
           ))
+        )}
+
+        {inbox.hasNextPage && (
+          <Button
+            label={inbox.isFetchingNextPage ? 'Loading…' : 'Load older notifications'}
+            variant="secondary"
+            disabled={inbox.isFetchingNextPage}
+            style={{ marginTop: 4 }}
+            onPress={() => inbox.fetchNextPage()}
+          />
         )}
 
         <View style={{ height: 32 }} />

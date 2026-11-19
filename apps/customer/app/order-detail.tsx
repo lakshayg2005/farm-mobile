@@ -1,9 +1,7 @@
 /**
- * Issue #5 – Customer app: order list + order status timeline + notifications inbox + push
- *
- * Screen 2 of 3: Order Detail & Status Timeline
- * Shows a vertical stepper with all order status stages.
- * The current stage is highlighted; completed ones are ticked; future ones are dim.
+ * Customer app: Order detail and status timeline (farm-mobile #5, real data in #27).
+ * Shows a vertical stepper with the order's stages from the order service.
+ * The current stage is highlighted; completed ones are ticked and timed; future ones are dim.
  */
 
 import React from 'react';
@@ -17,23 +15,18 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Button, Text, Card } from '@farm/ui';
 import { useAuth } from '@farm/api';
-import { MOCK_ORDERS, STATUS_META, type OrderStatus, type Order } from './orders';
-
-// ─── Timeline step order ──────────────────────────────────────────────────────
-
-const TIMELINE_STEPS: OrderStatus[] = [
-  'placed',
-  'confirmed',
-  'packed',
-  'ready_for_dispatch',
-  'out_for_delivery',
-  'delivered',
-];
-
-function getStepIndex(status: OrderStatus): number {
-  if (status === 'cancelled') return -1;
-  return TIMELINE_STEPS.indexOf(status);
-}
+import type { OrderStatus } from '@farm/api/src/order';
+import {
+  STATUS_META,
+  TIMELINE_STEPS,
+  addressLabel,
+  orderTitle,
+  rupees,
+  shortId,
+  stepIndex,
+  stepTimes,
+  useOrder,
+} from '../src/orders/index.ts';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,9 +52,10 @@ interface TimelineStepProps {
   currentIndex: number;
   stepIndex: number;
   isLast: boolean;
+  at: string | null;
 }
 
-function TimelineStep({ stepStatus, currentIndex, stepIndex, isLast }: TimelineStepProps) {
+function TimelineStep({ stepStatus, currentIndex, stepIndex, isLast, at }: TimelineStepProps) {
   const meta = STATUS_META[stepStatus];
   const isDone = stepIndex < currentIndex;
   const isCurrent = stepIndex === currentIndex;
@@ -86,7 +80,7 @@ function TimelineStep({ stepStatus, currentIndex, stepIndex, isLast }: TimelineS
         {!isLast && <View style={[styles.stepLine, { backgroundColor: lineColor }]} />}
       </View>
 
-      {/* Right: label + description */}
+      {/* Right: label + when */}
       <View style={[styles.stepContent, isFuture && styles.stepFuture]}>
         <Text
           variant="label"
@@ -99,7 +93,12 @@ function TimelineStep({ stepStatus, currentIndex, stepIndex, isLast }: TimelineS
         >
           {meta.label}
         </Text>
-        {isCurrent && (
+        {!isFuture && at && (
+          <Text variant="caption" style={{ color: isCurrent ? meta.color : '#777', marginTop: 2 }}>
+            {formatDateTime(at)}
+          </Text>
+        )}
+        {isCurrent && !at && (
           <Text variant="caption" style={{ color: meta.color, marginTop: 2 }}>
             Current status
           </Text>
@@ -115,7 +114,7 @@ function CancelledBanner() {
       <Text style={styles.cancelledEmoji}>❌</Text>
       <Text variant="h2" style={styles.cancelledTitle}>Order Cancelled</Text>
       <Text variant="caption" style={styles.cancelledSub}>
-        This order was cancelled. Contact support if you were charged.
+        This order was cancelled. Any payment is refunded to you.
       </Text>
     </Card>
   );
@@ -126,8 +125,9 @@ function CancelledBanner() {
 export default function OrderDetailScreen() {
   const { isAuthenticated, user, isLoading } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const orderQuery = useOrder(id ?? '');
 
-  if (isLoading) {
+  if (isLoading || orderQuery.isPending) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#2d6a4f" />
@@ -144,19 +144,25 @@ export default function OrderDetailScreen() {
     );
   }
 
-  const order: Order | undefined = MOCK_ORDERS.find(o => o.orderId === id);
+  const order = orderQuery.data;
 
   if (!order) {
+    const notFound = orderQuery.error?.message === 'Order not found';
     return (
       <View style={styles.center}>
-        <Text variant="h2">Order not found</Text>
-        <Button label="Back to Orders" variant="secondary" style={{ marginTop: 16 }} onPress={() => router.back()} />
+        <Text variant="h2">{notFound ? 'Order not found' : 'Could not load the order'}</Text>
+        {!notFound && (
+          <Button label="Try again" style={{ marginTop: 16 }} onPress={() => orderQuery.refetch()} />
+        )}
+        <Button label="Back to Orders" variant="secondary" style={{ marginTop: 12 }} onPress={() => router.back()} />
       </View>
     );
   }
 
-  const isCancelled = order.status === 'cancelled';
-  const currentIndex = getStepIndex(order.status);
+  const isCancelled = order.status === 'CANCELLED';
+  const currentIndex = stepIndex(order.status);
+  const times = stepTimes(order.events);
+  const address = addressLabel(order.deliveryAddress);
 
   return (
     <View style={styles.root}>
@@ -174,43 +180,55 @@ export default function OrderDetailScreen() {
         <Card style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={{ flex: 1 }}>
-              <Text variant="label" style={styles.farmName}>{order.farmName}</Text>
+              <Text variant="label" style={styles.farmName}>
+                {orderTitle(order)} {shortId(order.id)}
+              </Text>
               <Text variant="caption" style={{ marginTop: 2 }}>
-                Placed {formatDateTime(order.placedAt)}
+                Placed {formatDateTime(order.createdAt)}
               </Text>
-              <Text variant="caption" style={{ marginTop: 1 }}>
-                Delivery by {formatDate(order.deliveryDate)}
-              </Text>
+              {order.deliveryDate && (
+                <Text variant="caption" style={{ marginTop: 1 }}>
+                  Delivery by {formatDate(order.deliveryDate)}
+                </Text>
+              )}
             </View>
-            <Text style={styles.totalAmount}>₹{order.total}</Text>
+            <Text style={styles.totalAmount}>{rupees(order.total)}</Text>
           </View>
 
           {/* Items */}
           <View style={styles.itemsList}>
-            {order.items.map(item => (
-              <View key={item.listingId} style={styles.itemRow}>
+            {order.items.map((item, i) => (
+              <View key={`${item.listingId ?? item.name}-${i}`} style={styles.itemRow}>
                 <Text variant="caption" style={{ flex: 1, color: '#444' }}>
                   {item.name}  ×{item.qty} {item.unit}
                 </Text>
                 <Text variant="caption" style={{ color: '#444' }}>
-                  ₹{item.qty * item.unitPrice}
+                  {rupees(item.lineTotal)}
                 </Text>
               </View>
             ))}
+            {order.deliveryFee > 0 && (
+              <View style={styles.itemRow}>
+                <Text variant="caption" style={{ flex: 1, color: '#444' }}>Delivery</Text>
+                <Text variant="caption" style={{ color: '#444' }}>{rupees(order.deliveryFee)}</Text>
+              </View>
+            )}
             <View style={styles.divider} />
             <View style={styles.itemRow}>
               <Text variant="label" style={{ flex: 1 }}>Total</Text>
-              <Text variant="label" style={{ color: '#2d6a4f' }}>₹{order.total}</Text>
+              <Text variant="label" style={{ color: '#2d6a4f' }}>{rupees(order.total)}</Text>
             </View>
           </View>
 
           {/* Delivery address */}
-          <View style={styles.addressBox}>
-            <Text variant="label">Delivery Address</Text>
-            <Text variant="caption" style={{ marginTop: 3, color: '#555' }}>
-              📍 {order.deliveryAddress}
-            </Text>
-          </View>
+          {address && (
+            <View style={styles.addressBox}>
+              <Text variant="label">Delivery Address</Text>
+              <Text variant="caption" style={{ marginTop: 3, color: '#555' }}>
+                📍 {address}
+              </Text>
+            </View>
+          )}
         </Card>
 
         {/* Timeline */}
@@ -227,6 +245,7 @@ export default function OrderDetailScreen() {
                 currentIndex={currentIndex}
                 stepIndex={idx}
                 isLast={idx === TIMELINE_STEPS.length - 1}
+                at={times[idx] ?? null}
               />
             ))
           )}
@@ -236,15 +255,7 @@ export default function OrderDetailScreen() {
         <Button
           label="Track delivery and rate"
           style={{ marginTop: 8 }}
-          onPress={() => router.push({ pathname: '/order-tracking', params: { id: order.orderId } })}
-        />
-
-        {/* Help button */}
-        <Button
-          label="📞  Need Help?"
-          variant="ghost"
-          style={{ marginTop: 8, alignSelf: 'center' }}
-          onPress={() => {}}
+          onPress={() => router.push({ pathname: '/order-tracking', params: { id: order.id } })}
         />
 
         <View style={{ height: 32 }} />
