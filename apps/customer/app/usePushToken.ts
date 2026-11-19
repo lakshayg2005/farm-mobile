@@ -8,12 +8,13 @@
  * Uses expo-notifications (available via Expo SDK 51).
  * On simulators / web it silently no-ops — no crash.
  *
- * API endpoint: POST /notifications/devices
+ * API endpoint: POST /notification/notifications/devices (gateway prefix + service route)
  * Body: { token: string, platform: "ios" | "android" | "web" }
  */
 
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { BASE_URL } from '@farm/api';
 
 // Lazy-import to avoid crashes in envs where native module is absent
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,14 +25,6 @@ try {
 } catch {
   // expo-notifications not installed or native build not available — silently skip
 }
-
-// Expo public env vars are inlined at build time by Metro bundler
-declare const __EXPO_PUBLIC_API_BASE_URL__: string | undefined;
-const API_BASE: string =
-  // Metro replaces EXPO_PUBLIC_ vars; fall back gracefully
-  (typeof __EXPO_PUBLIC_API_BASE_URL__ !== 'undefined'
-    ? __EXPO_PUBLIC_API_BASE_URL__
-    : undefined) ?? 'http://localhost:8000';
 
 interface RegisterPushTokenOptions {
   /** JWT access token to authenticate the request */
@@ -74,7 +67,7 @@ export async function registerPushToken(opts: RegisterPushTokenOptions): Promise
       headers['Authorization'] = `Bearer ${opts.accessToken}`;
     }
 
-    const res = await fetch(`${API_BASE}/notifications/devices`, {
+    const res = await fetch(`${BASE_URL}/notification/notifications/devices`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ token, platform }),

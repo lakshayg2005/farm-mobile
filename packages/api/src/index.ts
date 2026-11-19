@@ -1,4 +1,4 @@
-export { client, setAuthToken } from './client';
+export { BASE_URL, client, createServiceClient, setAuthToken } from './client';
 export type { paths, components } from './schema';
 
 export * from './types/auth';
