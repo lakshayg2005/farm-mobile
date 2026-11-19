@@ -1,10 +1,11 @@
 /**
- * Issue #6 – Delivery app: today's route (map + ordered stops)
+ * Delivery app: today's route (farm-mobile #6, real data in #28).
  *
- * Shows an ordered stop list: pickups first, then drops.
- * Tapping "Navigate" on the next pending stop deep-links to Google Maps.
- * A mock map thumbnail sits at the top (replaced with react-native-maps
- * when the native module is wired up in a later sprint).
+ * Loads the signed-in partner's pool from GET /logistics/my-route and lists its stops in driving
+ * order (pickups before the drops that depend on them). "Navigate" deep-links to Google Maps;
+ * pickup and delivery go through their modals to the logistics API. Open with ?date=YYYY-MM-DD to
+ * see another day's route.
+ * A map thumbnail placeholder sits at the top (react-native-maps comes later).
  */
 
 import React, { useState, useCallback } from 'react';
@@ -16,87 +17,24 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Text, Card } from '@farm/ui';
-import { useAuth } from '@farm/api';
+import { getMyRoute, useAuth, type Pool } from '@farm/api';
 import { useLocationPings } from '../src/hooks/useLocationPings';
 import { ProofOfDeliveryModal } from '../src/components/ProofOfDeliveryModal';
 import { PickupModal } from '../src/components/PickupModal';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type StopType = 'pickup' | 'drop';
-type StopStatus = 'pending' | 'done' | 'skipped';
-
-interface RouteStop {
-  id: string;
-  seq: number;          // 1-based display order
-  type: StopType;
-  status: StopStatus;
-  label: string;        // "Farm: Greenfield Organics"
-  address: string;
-  lat: number;
-  lng: number;
-  customerName: string;
-  items: string[];      // e.g. ["2 × Tomatoes (1 kg)", "1 × Spinach (500 g)"]
-  otp?: string;         // present for drops (contactless proof)
-}
-
-// ─── Mock data (replaced by API in Sprint 3) ─────────────────────────────────
-
-const MOCK_STOPS: RouteStop[] = [
-  {
-    id: 'stop-1',
-    seq: 1,
-    type: 'pickup',
-    status: 'done',
-    label: 'Farm: Greenfield Organics',
-    address: 'Sector 12, Palam Vihar, Gurugram',
-    lat: 28.5021,
-    lng: 76.9986,
-    customerName: 'Greenfield Organics (Farm)',
-    items: ['2 × Tomatoes (1 kg)', '1 × Spinach (500 g)', '3 × Carrots (500 g)'],
-  },
-  {
-    id: 'stop-2',
-    seq: 2,
-    type: 'pickup',
-    status: 'pending',
-    label: 'Farm: Sunrise Agro',
-    address: 'Village Dhankot, Gurugram',
-    lat: 28.4595,
-    lng: 76.9558,
-    customerName: 'Sunrise Agro (Farm)',
-    items: ['4 × Potatoes (1 kg)', '2 × Onions (1 kg)'],
-  },
-  {
-    id: 'stop-3',
-    seq: 3,
-    type: 'drop',
-    status: 'pending',
-    label: 'Customer: Priya Sharma',
-    address: 'Flat 304, Orchid Heights, Sector 56, Gurugram',
-    lat: 28.4231,
-    lng: 77.0421,
-    customerName: 'Priya Sharma',
-    items: ['2 × Tomatoes (1 kg)', '4 × Potatoes (1 kg)'],
-    otp: '7823',
-  },
-  {
-    id: 'stop-4',
-    seq: 4,
-    type: 'drop',
-    status: 'pending',
-    label: 'Customer: Rahul Mehta',
-    address: 'B-12, DLF Phase 2, Gurugram',
-    lat: 28.4751,
-    lng: 77.0901,
-    customerName: 'Rahul Mehta',
-    items: ['1 × Spinach (500 g)', '3 × Carrots (500 g)', '2 × Onions (1 kg)'],
-    otp: '4591',
-  },
-];
+import {
+  localISODate,
+  markStopDone,
+  routeStops,
+  routeSummary,
+  type RouteStop,
+  type StopStatus,
+  type StopType,
+} from '../src/route/route';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -233,20 +171,38 @@ function MapBanner({ totalStops, doneStops }: { totalStops: number; doneStops: n
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
+function formatDay(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 export default function TodaysRouteScreen() {
   const { isAuthenticated, user, isLoading } = useAuth();
-  const [stops, setStops] = useState<RouteStop[]>(MOCK_STOPS);
+  const isPartner = isAuthenticated && !!user?.roles?.includes('delivery');
+  const params = useLocalSearchParams<{ date?: string }>();
+  const today = localISODate();
+  const poolDate = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today;
+
+  const queryClient = useQueryClient();
+  const route = useQuery({
+    queryKey: ['my-route', poolDate],
+    queryFn: () => getMyRoute(poolDate),
+    enabled: isPartner,
+  });
+
   const [activeDeliveryStop, setActiveDeliveryStop] = useState<RouteStop | null>(null);
   const [activePickupStop, setActivePickupStop] = useState<RouteStop | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Derived state
-  const doneCount = stops.filter(s => s.status === 'done').length;
-  const allDone = doneCount === stops.length;
-  const nextStop = stops.find(s => s.status === 'pending');
+  const stops = routeStops(route.data ?? null);
+  const summary = routeSummary(stops);
+  const nextStop = summary.next;
 
-  // Issue #7: Background location pings every 30s while route is active
-  const { isTracking, lastPingTime, pingCount, error: trackingError } = useLocationPings(!allDone);
+  // Issue #7: location pings every 30s while the route still has stops to work
+  const { isTracking, lastPingTime, pingCount, error: trackingError } = useLocationPings(
+    Boolean(nextStop),
+  );
 
   const handleNavigate = useCallback(async (stop: RouteStop) => {
     const url = mapsUrl(stop.lat, stop.lng, stop.label);
@@ -270,13 +226,20 @@ export default function TodaysRouteScreen() {
     }
   }, []);
 
-  const handleStopSuccess = useCallback((stopId: string) => {
-    setStops(prev =>
-      prev.map(s => (s.id === stopId ? { ...s, status: 'done' } : s)),
-    );
-    setSuccessToast('Stop status updated successfully!');
-    setTimeout(() => setSuccessToast(null), 3500);
-  }, []);
+  // The modals call this only after logistics accepted the pickup or delivery.
+  const handleStopSuccess = useCallback(
+    (stopId: string) => {
+      const key = ['my-route', poolDate];
+      queryClient.setQueryData<Pool | null>(
+        key,
+        (pool: Pool | null | undefined) => markStopDone(pool, stopId) ?? null,
+      );
+      void queryClient.invalidateQueries({ queryKey: key });
+      setSuccessToast('Stop status updated successfully!');
+      setTimeout(() => setSuccessToast(null), 3500);
+    },
+    [queryClient, poolDate],
+  );
 
   // Guard: must be authenticated delivery partner
   if (isLoading) {
@@ -287,7 +250,7 @@ export default function TodaysRouteScreen() {
     );
   }
 
-  if (!isAuthenticated || !user?.roles?.includes('delivery')) {
+  if (!isPartner) {
     return (
       <View style={styles.center}>
         <Text variant="body">Access denied. Please log in as a delivery partner.</Text>
@@ -301,6 +264,10 @@ export default function TodaysRouteScreen() {
     );
   }
 
+  const dayLabel = poolDate === today ? 'today' : formatDay(poolDate);
+  // With no pool on the asked day, logistics answers with the partner's active pool from another day.
+  const shownDate = route.data?.poolDate ?? poolDate;
+
   return (
     <View style={styles.root}>
       {/* Header */}
@@ -309,89 +276,116 @@ export default function TodaysRouteScreen() {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text variant="h2" style={styles.headerTitle}>
-          {"Today's Route"}
+          {shownDate === today ? "Today's Route" : `Route · ${formatDay(shownDate)}`}
         </Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Map banner */}
-        <MapBanner totalStops={stops.length} doneStops={doneCount} />
-
-        {/* Issue #7: 30-Second Location Tracking Status Banner */}
-        <View style={styles.trackingCard}>
-          <View style={styles.trackingHeader}>
-            <View
-              style={[
-                styles.trackingDot,
-                isTracking ? styles.trackingDotActive : styles.trackingDotInactive,
-              ]}
-            />
-            <Text style={styles.trackingTitle}>
-              {isTracking ? 'GPS Tracking Active' : 'GPS Tracking Paused'}
-            </Text>
-            <View style={styles.pingPill}>
-              <Text style={styles.pingPillText}>30s interval</Text>
-            </View>
-          </View>
-          <Text variant="caption" style={styles.trackingSubtitle}>
-            {isTracking
-              ? `Reporting coordinates to logistics dispatch · ${pingCount} pings sent${
-                  lastPingTime ? ` (last: ${lastPingTime})` : ''
-                }`
-              : 'Tracking resumes automatically when pending stops exist.'}
-          </Text>
-          {trackingError && (
-            <Text variant="caption" style={styles.trackingErrorText}>
-              ⚠️ {trackingError}
-            </Text>
-          )}
-        </View>
-
-        {/* Success Feedback Toast */}
-        {successToast && (
-          <View style={styles.toastBox}>
-            <Text style={styles.toastText}>🎉 {successToast}</Text>
-          </View>
-        )}
-
-        {/* Route summary */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryNum}>
-              {stops.filter(s => s.type === 'pickup').length}
-            </Text>
-            <Text variant="caption">Pickups</Text>
-          </View>
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryNum}>
-              {stops.filter(s => s.type === 'drop').length}
-            </Text>
-            <Text variant="caption">Drops</Text>
-          </View>
-          <View style={styles.summaryChip}>
-            <Text style={[styles.summaryNum, { color: '#2d6a4f' }]}>{doneCount}</Text>
-            <Text variant="caption">Done</Text>
-          </View>
-        </View>
-
-        {/* All-done banner */}
-        {allDone && (
-          <Card style={styles.allDoneCard}>
-            <Text style={styles.allDoneText}>🎉 Route complete! Great work today.</Text>
-          </Card>
-        )}
-
-        {/* Stop list */}
-        {stops.map(stop => (
-          <StopCard
-            key={stop.id}
-            stop={stop}
-            isNext={nextStop?.id === stop.id}
-            onNavigate={handleNavigate}
-            onAction={handleStopAction}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={route.isRefetching}
+            onRefresh={() => route.refetch()}
+            tintColor="#2d6a4f"
           />
-        ))}
+        }
+      >
+        {route.isPending ? (
+          <ActivityIndicator size="large" color="#2d6a4f" style={{ marginTop: 48 }} />
+        ) : route.isError ? (
+          <Card style={styles.allDoneCard}>
+            <Text variant="h2">Could not load your route</Text>
+            <Text variant="caption" style={{ marginTop: 4 }}>
+              {route.error instanceof Error ? route.error.message : 'Try again in a moment.'}
+            </Text>
+            <Button label="Try again" style={{ marginTop: 12 }} onPress={() => route.refetch()} />
+          </Card>
+        ) : stops.length === 0 ? (
+          <Card style={styles.allDoneCard}>
+            <Text style={styles.allDoneText}>No route assigned for {dayLabel}.</Text>
+            <Text variant="caption" style={{ marginTop: 4 }}>
+              Pull down to check again once dispatch has assigned you a pool.
+            </Text>
+          </Card>
+        ) : (
+          <>
+            {/* Map banner */}
+            <MapBanner totalStops={stops.length} doneStops={summary.done} />
+
+            {/* Issue #7: 30-Second Location Tracking Status Banner */}
+            <View style={styles.trackingCard}>
+              <View style={styles.trackingHeader}>
+                <View
+                  style={[
+                    styles.trackingDot,
+                    isTracking ? styles.trackingDotActive : styles.trackingDotInactive,
+                  ]}
+                />
+                <Text style={styles.trackingTitle}>
+                  {isTracking ? 'GPS Tracking Active' : 'GPS Tracking Paused'}
+                </Text>
+                <View style={styles.pingPill}>
+                  <Text style={styles.pingPillText}>30s interval</Text>
+                </View>
+              </View>
+              <Text variant="caption" style={styles.trackingSubtitle}>
+                {isTracking
+                  ? `Reporting coordinates to logistics dispatch · ${pingCount} pings sent${
+                      lastPingTime ? ` (last: ${lastPingTime})` : ''
+                    }`
+                  : 'Tracking resumes automatically when pending stops exist.'}
+              </Text>
+              {trackingError && (
+                <Text variant="caption" style={styles.trackingErrorText}>
+                  ⚠️ {trackingError}
+                </Text>
+              )}
+            </View>
+
+            {/* Success Feedback Toast */}
+            {successToast && (
+              <View style={styles.toastBox}>
+                <Text style={styles.toastText}>🎉 {successToast}</Text>
+              </View>
+            )}
+
+            {/* Route summary */}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryChip}>
+                <Text style={styles.summaryNum}>{summary.pickups}</Text>
+                <Text variant="caption">Pickups</Text>
+              </View>
+              <View style={styles.summaryChip}>
+                <Text style={styles.summaryNum}>{summary.drops}</Text>
+                <Text variant="caption">Drops</Text>
+              </View>
+              <View style={styles.summaryChip}>
+                <Text style={[styles.summaryNum, { color: '#2d6a4f' }]}>{summary.done}</Text>
+                <Text variant="caption">Done</Text>
+              </View>
+            </View>
+
+            {/* All-done banner */}
+            {summary.finished && (
+              <Card style={styles.allDoneCard}>
+                <Text style={styles.allDoneText}>🎉 Route complete! Great work today.</Text>
+              </Card>
+            )}
+
+            {/* Stop list */}
+            {stops.map(stop => (
+              <StopCard
+                key={stop.id}
+                stop={stop}
+                isNext={nextStop?.id === stop.id}
+                onNavigate={handleNavigate}
+                onAction={handleStopAction}
+              />
+            ))}
+          </>
+        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>

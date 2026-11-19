@@ -1,4 +1,11 @@
-import { BASE_URL, getAuthToken } from './client';
+import { BASE_URL, createServiceClient, getAuthToken } from './client';
+import type { components, paths } from './generated/logistics';
+
+/** Logistics service client (contracts/openapi/logistics.json); the base URL adds /logistics. */
+export const logisticsClient = createServiceClient<paths>('logistics');
+
+export type Pool = components['schemas']['PoolOut'];
+export type Stop = components['schemas']['StopOut'];
 
 export interface LocationPing {
   lat: number;
@@ -27,74 +34,78 @@ export interface ApiResponse<T = unknown> {
   message?: string;
 }
 
-/**
- * Confirms order pickup at a farm stop.
- */
-export async function submitPickup(payload: PickupPayload): Promise<ApiResponse> {
-  const token = getAuthToken();
-  const url = `${BASE_URL}/logistics/stops/${encodeURIComponent(payload.stopId)}/pickup`;
-
+/** The platform's error body: { error: { code, message } }. Falls back to the HTTP status. */
+async function errorMessage(res: Response, fallback: string): Promise<string> {
   try {
-    const res = await fetch(url, {
+    const body = (await res.json()) as {
+      error?: { message?: string; details?: { field?: string; message?: string }[] };
+    };
+    const detail = body?.error?.details?.[0];
+    if (body?.error?.message && detail?.message) {
+      return `${body.error.message}: ${detail.field ? `${detail.field} ` : ''}${detail.message}`;
+    }
+    if (body?.error?.message) return body.error.message;
+  } catch {
+    // not JSON
+  }
+  return `${fallback} (${res.status})`;
+}
+
+async function postStop(path: string, body: unknown, fallback: string): Promise<ApiResponse<Stop>> {
+  const token = getAuthToken();
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/logistics${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({
-        stop_id: payload.stopId,
-        notes: payload.notes,
-        collected_at: new Date().toISOString(),
-      }),
+      body: JSON.stringify(body),
     });
-
-    if (!res.ok) {
-      console.warn(`[logistics] /pickup returned ${res.status}`);
-      return { success: true, message: 'Pickup recorded (offline fallback)' };
-    }
-
-    const data = await res.json().catch(() => ({}));
-    return { success: true, data };
-  } catch (err) {
-    console.warn('[logistics] Network error during pickup confirmation:', err);
-    return { success: true, message: 'Pickup recorded locally' };
+  } catch {
+    throw new Error('No connection. Check your network and try again.');
   }
+  if (!res.ok) throw new Error(await errorMessage(res, fallback));
+  return { success: true, data: (await res.json()) as Stop };
 }
 
 /**
- * Confirms order delivery with OTP verification and proof photo.
+ * Confirms order pickup at a farm stop. Throws with the server's message if it is refused, so the
+ * stop is not shown as done when it is not.
  */
-export async function submitDelivery(payload: DeliveryPayload): Promise<ApiResponse> {
-  const token = getAuthToken();
-  const url = `${BASE_URL}/logistics/stops/${encodeURIComponent(payload.stopId)}/deliver`;
+export function submitPickup(payload: PickupPayload): Promise<ApiResponse<Stop>> {
+  return postStop(
+    `/stops/${encodeURIComponent(payload.stopId)}/pickup`,
+    { notes: payload.notes, collectedAt: new Date().toISOString() },
+    'Pickup was not recorded',
+  );
+}
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        stop_id: payload.stopId,
-        otp: payload.otp,
-        photo_media_id: payload.photoMediaId,
-        notes: payload.notes,
-        delivered_at: new Date().toISOString(),
-      }),
-    });
+/** Confirms order delivery with OTP verification and proof photo. Throws if it is refused. */
+export function submitDelivery(payload: DeliveryPayload): Promise<ApiResponse<Stop>> {
+  return postStop(
+    `/stops/${encodeURIComponent(payload.stopId)}/deliver`,
+    {
+      otp: payload.otp,
+      photoMediaId: payload.photoMediaId,
+      notes: payload.notes,
+      deliveredAt: new Date().toISOString(),
+    },
+    'Delivery was not recorded',
+  );
+}
 
-    if (!res.ok) {
-      console.warn(`[logistics] /deliver returned ${res.status}`);
-      return { success: true, message: 'Delivery recorded (offline fallback)' };
-    }
-
-    const data = await res.json().catch(() => ({}));
-    return { success: true, data };
-  } catch (err) {
-    console.warn('[logistics] Network error during delivery confirmation:', err);
-    return { success: true, message: 'Delivery recorded locally' };
-  }
+/**
+ * The signed-in partner's pool for a day (YYYY-MM-DD, default today), or null when none is assigned.
+ */
+export async function getMyRoute(poolDate?: string): Promise<Pool | null> {
+  const { data, response } = await logisticsClient.GET('/my-route', {
+    params: { query: poolDate ? { pool_date: poolDate } : {} },
+  });
+  if (response.status === 404) return null;
+  if (!data) throw new Error(await errorMessage(response, 'Could not load your route'));
+  return data;
 }
 
 /**
@@ -115,10 +126,10 @@ export async function sendLocationPing(location: LocationPing): Promise<ApiRespo
       body: JSON.stringify({
         lat: location.lat,
         lng: location.lng,
-        speed: location.speed,
+        speedMs: location.speed,
         heading: location.heading,
-        accuracy: location.accuracy,
-        recorded_at: location.recordedAt ?? new Date().toISOString(),
+        accuracyM: location.accuracy,
+        recordedAt: location.recordedAt ?? new Date().toISOString(),
       }),
     });
 

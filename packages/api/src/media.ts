@@ -13,38 +13,48 @@ export interface UploadPhotoResult {
   isMock?: boolean;
 }
 
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+async function mediaError(res: Response, step: string): Promise<Error> {
+  try {
+    const body = (await res.json()) as { error?: { message?: string } };
+    if (body?.error?.message) return new Error(body.error.message);
+  } catch {
+    // not JSON
+  }
+  return new Error(`Photo upload failed at ${step} (${res.status})`);
+}
+
 /**
  * Uploads a proof of delivery photo to the media service following the 3-step upload flow:
- * 1. POST /media/upload-url -> gets signed uploadUrl + mediaId
+ * 1. POST /media/upload-url -> gets signed uploadUrl + mediaId (signed for the exact size and type)
  * 2. PUT <uploadUrl> with the image blob
  * 3. POST /media/{mediaId}/complete -> confirms upload
  *
- * If backend media service is offline, falls back to a simulated media ID so testing works seamlessly.
+ * Throws if any step fails: logistics only accepts a delivery with a real photo id.
  */
 export async function uploadDeliveryPhoto(options: UploadPhotoOptions): Promise<UploadPhotoResult> {
-  const { uri, stopId, mimeType = 'image/jpeg', sizeBytes = 250000 } = options;
+  const { uri, stopId } = options;
   const token = getAuthToken();
+  const auth: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   try {
-    // Step 1: Request signed upload URL
+    // The upload URL is signed for the exact byte size, so read the image first.
+    const blob = await (await fetch(uri)).blob();
+    const mimeType = options.mimeType ?? (PHOTO_TYPES.includes(blob.type) ? blob.type : 'image/jpeg');
+    const sizeBytes = options.sizeBytes ?? blob.size;
+
     const uploadUrlRes = await fetch(`${BASE_URL}/media/upload-url`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({
-        owner_type: 'DELIVERY',
-        owner_id: stopId,
-        content_type: mimeType,
-        size_bytes: sizeBytes,
+        ownerType: 'DELIVERY',
+        ownerId: stopId,
+        contentType: mimeType,
+        sizeBytes,
       }),
     });
-
-    if (!uploadUrlRes.ok) {
-      console.warn(`[media] /upload-url returned ${uploadUrlRes.status}; falling back to mock upload`);
-      return { mediaId: `pod-${Date.now()}-${stopId}`, url: uri, isMock: true };
-    }
+    if (!uploadUrlRes.ok) throw await mediaError(uploadUrlRes, 'upload-url');
 
     const { mediaId, uploadUrl, headers = {} } = (await uploadUrlRes.json()) as {
       mediaId: string;
@@ -52,42 +62,25 @@ export async function uploadDeliveryPhoto(options: UploadPhotoOptions): Promise<
       headers?: Record<string, string>;
     };
 
-    // Step 2: Upload binary blob to signed storage URL
-    const imageResponse = await fetch(uri);
-    const blob = await imageResponse.blob();
-
     const putRes = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: {
-        'Content-Type': mimeType,
-        ...headers,
-      },
+      headers: { 'Content-Type': mimeType, ...headers },
       body: blob,
     });
+    if (!putRes.ok) throw new Error(`Photo upload failed (${putRes.status})`);
 
-    if (!putRes.ok) {
-      console.warn(`[media] PUT to uploadUrl returned ${putRes.status}; using mediaId`);
-      return { mediaId, url: uri, isMock: false };
-    }
-
-    // Step 3: Complete the upload
     const completeRes = await fetch(`${BASE_URL}/media/${mediaId}/complete`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({}),
     });
+    if (!completeRes.ok) throw await mediaError(completeRes, 'complete');
 
-    if (completeRes.ok) {
-      const data = (await completeRes.json()) as { id: string; url?: string };
-      return { mediaId: data.id ?? mediaId, url: data.url ?? uri, isMock: false };
-    }
-
-    return { mediaId, url: uri, isMock: false };
+    const data = (await completeRes.json()) as { id?: string; url?: string };
+    return { mediaId: data.id ?? mediaId, url: data.url ?? uri, isMock: false };
   } catch (error) {
-    console.warn('[media] Upload network error, using fallback mediaId:', error);
-    return { mediaId: `pod-${Date.now()}-${stopId}`, url: uri, isMock: true };
+    // fetch rejects with a TypeError when there is no network
+    if (error instanceof TypeError) throw new Error('No connection. Check your network and try again.');
+    throw error;
   }
 }
