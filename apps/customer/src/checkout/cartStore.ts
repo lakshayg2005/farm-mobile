@@ -29,7 +29,18 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export const addToCart = (item: NewCartItem): void => update(cartLogic.addItem(cart, item));
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Adds produce to the cart. Offline demo listings have ids like `lst-tomato-hybrid-1`, which the
+ * order service rejects (listingId must be a UUID), so they are not allowed into the cart.
+ * Returns false when the item was refused.
+ */
+export function addToCart(item: NewCartItem): boolean {
+  if (!UUID.test(item.listingId)) return false;
+  update(cartLogic.addItem(cart, item));
+  return true;
+}
 export const setCartQty = (listingId: string, qty: number): void =>
   update(cartLogic.setQty(cart, listingId, qty));
 export const removeFromCart = (listingId: string): void =>

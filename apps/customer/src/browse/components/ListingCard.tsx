@@ -19,7 +19,7 @@ export function ListingCard({ listing, onAddedToCart }: ListingCardProps) {
   const gradeMeta = formatGradeBadge(listing.grade);
 
   const handleAddToCart = () => {
-    addToCart({
+    const added = addToCart({
       listingId: listing.id,
       farmId: listing.farmId,
       farmName: listing.farmName,
@@ -29,7 +29,7 @@ export function ListingCard({ listing, onAddedToCart }: ListingCardProps) {
       qty: 1,
       maxQty: listing.qtyAvailable,
     });
-    if (onAddedToCart) onAddedToCart(listing);
+    if (added && onAddedToCart) onAddedToCart(listing);
   };
 
   const handleOpenDetail = () => {

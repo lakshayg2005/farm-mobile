@@ -76,7 +76,7 @@ export default function ListingDetailScreen() {
   const subtotal = Math.round(listing.pricePerUnit * qty * 100) / 100;
 
   const handleAddToCart = () => {
-    addToCart({
+    const added = addToCart({
       listingId: listing.id,
       farmId: listing.farmId,
       farmName: listing.farmName,
@@ -86,6 +86,11 @@ export default function ListingDetailScreen() {
       qty,
       maxQty: listing.qtyAvailable,
     });
+    if (!added) {
+      setAddedMessage('This is an offline demo listing and cannot be ordered. Connect to the server and refresh.');
+      setTimeout(() => setAddedMessage(null), 4000);
+      return;
+    }
     setAddedMessage(`✓ Added ${qty} ${listing.unit} to cart!`);
     setTimeout(() => setAddedMessage(null), 4000);
   };
