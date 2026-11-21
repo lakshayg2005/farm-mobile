@@ -1,0 +1,120 @@
+[
+ {
+  "id": "res-durg-active-1",
+  "plotId": "plot-durg-01",
+  "plotTitle": "Kumhari Riverfront Fertile Plot",
+  "plotSeasonId": "ps-durg-01-rabi",
+  "seasonName": "Rabi 2026-27",
+  "farmerId": "farmer-ramesh-1",
+  "farmerName": "Ramesh Sahu",
+  "farmerPhone": "+91 98260 11221",
+  "cropId": "tomato",
+  "cropName": "Tomato (Hybrid Himsona)",
+  "expectedQtyKg": 250,
+  "status": "ACTIVE",
+  "deposit": 1600,
+  "total": 8000,
+  "createdAt": "2026-10-28",
+  "updates": [
+   {
+    "id": "upd-1",
+    "stage": "SOWN",
+    "stageTitle": "Seed Sowing & Germination",
+    "note": "Seeds sown in nursery beds with vermicompost and neem cake treatment. Healthy germination rate observed at 94%.",
+    "createdAt": "2026-11-02",
+    "photos": [
+     {
+      "id": "photo-upd-1",
+      "url": "https://images.unsplash.com/photo-1592417817098-8f3d69109854?w=800&auto=format&fit=crop&q=80",
+      "thumbUrl": "https://images.unsplash.com/photo-1592417817098-8f3d69109854?w=200&auto=format&fit=crop&q=60",
+      "isGeoVerified": true,
+      "distanceM": 25
+     }
+    ]
+   },
+   {
+    "id": "upd-2",
+    "stage": "GROWING",
+    "stageTitle": "Transplanting & Vegetative Growth",
+    "note": "Saplings transplanted into main field ridges. Drip irrigation active; applied organic Panchagavya foliar spray for root strength.",
+    "createdAt": "2026-11-10",
+    "photos": [
+     {
+      "id": "photo-upd-2",
+      "url": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=80",
+      "thumbUrl": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=200&auto=format&fit=crop&q=60",
+      "isGeoVerified": true,
+      "distanceM": 40
+     }
+    ]
+   },
+   {
+    "id": "upd-3",
+    "stage": "FLOWERING",
+    "stageTitle": "Bloom & Fruit Setting",
+    "note": "Abundant golden-yellow blooms across all rows. First small green clusters forming nicely. Bamboo staking completed to support fruit load.",
+    "createdAt": "2026-11-16",
+    "photos": [
+     {
+      "id": "photo-upd-3",
+      "url": "https://images.unsplash.com/photo-1508746829417-e6f548d8d6ed?w=800&auto=format&fit=crop&q=80",
+      "thumbUrl": "https://images.unsplash.com/photo-1508746829417-e6f548d8d6ed?w=200&auto=format&fit=crop&q=60",
+      "isGeoVerified": true,
+      "distanceM": 15
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "res-durg-harvest-2",
+  "plotId": "plot-durg-02",
+  "plotTitle": "Dhamdha Organic Terrace Farm",
+  "plotSeasonId": "ps-durg-02-rabi",
+  "seasonName": "Rabi 2026-27",
+  "farmerId": "farmer-sunita-2",
+  "farmerName": "Sunita Verma",
+  "farmerPhone": "+91 98260 33442",
+  "cropId": "spinach",
+  "cropName": "Spinach (Desi Palak)",
+  "expectedQtyKg": 100,
+  "status": "HARVEST_READY",
+  "deposit": 700,
+  "total": 3500,
+  "createdAt": "2026-10-15",
+  "updates": [
+   {
+    "id": "upd-sp-1",
+    "stage": "SOWN",
+    "stageTitle": "Broadcasting & Furrow Watering",
+    "note": "High density desi broad-leaf spinach sown in raised beds. Treated with Trichoderma.",
+    "createdAt": "2026-10-20",
+    "photos": []
+   },
+   {
+    "id": "upd-sp-2",
+    "stage": "GROWING",
+    "stageTitle": "Leaf Emergence & Weeding",
+    "note": "Vigorous deep green foliage. First weeding round completed by hand.",
+    "createdAt": "2026-10-31",
+    "photos": []
+   },
+   {
+    "id": "upd-sp-3",
+    "stage": "HARVEST_READY",
+    "stageTitle": "Mature & Ready for Harvest",
+    "note": "Tender lush green palak ready for cutting! Quality inspection passed with Grade A certificate. Ready for fresh delivery or buy-back.",
+    "createdAt": "2026-11-17",
+    "photos": [
+     {
+      "id": "photo-upd-sp-3",
+      "url": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&auto=format&fit=crop&q=80",
+      "thumbUrl": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=200&auto=format&fit=crop&q=60",
+      "isGeoVerified": true,
+      "distanceM": 30
+     }
+    ]
+   }
+  ]
+ }
+]
