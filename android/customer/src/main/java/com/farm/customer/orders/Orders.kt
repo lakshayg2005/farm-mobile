@@ -22,21 +22,21 @@ import kotlin.math.sqrt
 
 // ─── Orders ─────────────────────────────────────────────────────────────────
 
-data class StatusMeta(val label: String, val color: String, val bg: String, val emoji: String)
+data class StatusMeta(val label: String, val color: String, val bg: String)
 
 val STATUS_META = mapOf(
-    "PLACED" to StatusMeta("Order Placed", "#2F5FD0", "#E8EEFB", "🧾"),
-    "CONFIRMED" to StatusMeta("Confirmed", "#2F5FD0", "#E8EEFB", "✅"),
-    "PACKED" to StatusMeta("Packed", "#B7791F", "#FBF3E6", "📦"),
-    "READY_FOR_DISPATCH" to StatusMeta("Packed", "#B7791F", "#FBF3E6", "📦"),
-    "POOLED" to StatusMeta("On a route", "#B7791F", "#FBF3E6", "🚜"),
-    "IN_TRANSIT" to StatusMeta("Out for Delivery", "#1D7A4D", "#E3F1E9", "🚚"),
-    "DELIVERED" to StatusMeta("Delivered", "#1D7A4D", "#E3F1E9", "🎉"),
-    "COMPLETED" to StatusMeta("Delivered", "#1D7A4D", "#E3F1E9", "🎉"),
-    "CANCELLED" to StatusMeta("Cancelled", "#C2412D", "#FBEAE7", "❌"),
+    "PLACED" to StatusMeta("Order Placed", "#2F5FD0", "#E8EEFB"),
+    "CONFIRMED" to StatusMeta("Confirmed", "#2F5FD0", "#E8EEFB"),
+    "PACKED" to StatusMeta("Packed", "#B7791F", "#FBF3E6"),
+    "READY_FOR_DISPATCH" to StatusMeta("Packed", "#B7791F", "#FBF3E6"),
+    "POOLED" to StatusMeta("On a route", "#B7791F", "#FBF3E6"),
+    "IN_TRANSIT" to StatusMeta("Out for Delivery", "#1D7A4D", "#E3F1E9"),
+    "DELIVERED" to StatusMeta("Delivered", "#1D7A4D", "#E3F1E9"),
+    "COMPLETED" to StatusMeta("Delivered", "#1D7A4D", "#E3F1E9"),
+    "CANCELLED" to StatusMeta("Cancelled", "#C2412D", "#FBEAE7"),
 )
 
-fun statusMeta(status: String) = STATUS_META[status] ?: StatusMeta(status.replace('_', ' '), "#4B5258", "#E6E9EB", "📍")
+fun statusMeta(status: String) = STATUS_META[status] ?: StatusMeta(status.replace('_', ' '), "#4B5258", "#E6E9EB")
 
 // ─── Status rail (same six stages as the website's StatusRail) ──────────────────
 

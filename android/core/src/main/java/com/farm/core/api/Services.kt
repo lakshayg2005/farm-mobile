@@ -207,6 +207,13 @@ object LogisticsApi {
     }.getOrDefault(false)
 
     /** Routes offered to this partner that are still open (nearest offer first from the server). */
+    /** Every route of the signed-in partner in the last [days] days, today included, newest first. */
+    suspend fun myRoutes(days: Int = 14): List<Pool> {
+        val res = Http.get("/logistics/my-routes", mapOf("days" to days.toString()))
+        if (!res.ok) throw ApiException(errorMessage(res, "Could not load your route history"), res.error()?.code ?: "REQUEST_FAILED", res.status)
+        return res.decode()
+    }
+
     suspend fun myOffers(): List<RouteOffer> {
         val res = Http.get("/logistics/offers/mine")
         if (!res.ok) throw ApiException(errorMessage(res, "Could not load route offers"), res.error()?.code ?: "REQUEST_FAILED", res.status)

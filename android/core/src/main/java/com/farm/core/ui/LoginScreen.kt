@@ -1,5 +1,12 @@
 package com.farm.core.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,7 +65,7 @@ fun SharedLoginScreen(
     appName: String,
     appSubtitle: String?,
     requiredRole: String,
-    logoEmoji: String,
+    logoIcon: ImageVector,
     onSuccess: (User) -> Unit,
 ) {
     val auth by AuthManager.state.collectAsState()
@@ -164,7 +171,9 @@ fun SharedLoginScreen(
             .padding(horizontal = 20.dp, vertical = 36.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(logoEmoji, fontSize = 48.sp)
+        Box(Modifier.size(76.dp).clip(CircleShape).background(FarmColors.PrimaryLight), contentAlignment = Alignment.Center) {
+            Icon(logoIcon, contentDescription = null, tint = FarmColors.Primary, modifier = Modifier.size(42.dp))
+        }
         Spacer(Modifier.height(8.dp))
         FText(appName, variant = TextVariant.H1, textAlign = TextAlign.Center)
         if (appSubtitle != null) {

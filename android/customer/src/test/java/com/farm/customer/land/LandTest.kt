@@ -97,4 +97,17 @@ class LandTest {
     fun seasonChipsUseTheServerNames() {
         assertEquals(listOf("Kharif", "Rabi", "Zaid"), SEASON_NAMES)
     }
+
+    @Test fun priceAndRadiusFiltersAndTheActiveCount() {
+        fun plot(id: String, price: Double, km: Double) = PlotItem(
+            id = id, title = id, areaAcres = 2.0, distanceM = km * 1000,
+            seasons = listOf(PlotSeasonItem("s$id", id, "Rabi", pricePerKg = price, allowedCrops = listOf("wheat", "Mustard"))),
+        )
+        val plots = listOf(plot("cheap", 20.0, 5.0), plot("dear", 60.0, 5.0), plot("far", 20.0, 80.0))
+        assertEquals(listOf("cheap", "far"), filterPlots(plots, LandFilterState(radiusKm = 100, maxPricePerKg = 30.0)).map { it.id })
+        assertEquals(listOf("cheap", "dear"), filterPlots(plots, LandFilterState(radiusKm = 10)).map { it.id })
+        assertEquals(0, activeLandFilters(LandFilterState()))
+        assertEquals(3, activeLandFilters(LandFilterState(radiusKm = 10, maxPricePerKg = 30.0, sort = LandSortOption.PRICE_ASC)))
+        assertEquals(listOf("mustard", "wheat"), cropsOf(plots))
+    }
 }

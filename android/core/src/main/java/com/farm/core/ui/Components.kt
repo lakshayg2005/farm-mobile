@@ -1,5 +1,10 @@
 package com.farm.core.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+
 import com.farm.core.R
 
 import androidx.compose.ui.semantics.semantics
@@ -227,6 +232,7 @@ fun FarmButton(
     variant: ButtonVariant = ButtonVariant.Primary,
     loading: Boolean = false,
     enabled: Boolean = true,
+    icon: ImageVector? = null,
 ) {
     val shape = RoundedCornerShape(FarmDimens.ControlRadius)
     val padding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
@@ -244,6 +250,10 @@ fun FarmButton(
                 color = fg,
             )
         } else {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+            }
             Text(
                 label,
                 fontWeight = FontWeight.SemiBold,
@@ -408,7 +418,7 @@ fun ScreenHeader(title: String, onBack: (() -> Unit)?, actions: @Composable RowS
                         Modifier.size(FarmDimens.TouchTarget).clip(CircleShape).clickable(onClick = onBack)
                             .semantics { contentDescription = "Back" },
                         contentAlignment = Alignment.Center,
-                    ) { Text("←", color = FarmColors.TextDark, fontSize = 22.sp) }
+                    ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, tint = FarmColors.TextDark) }
                 }
             }
             Text(
@@ -463,21 +473,64 @@ fun CenteredLoading(text: String? = null) {
 
 /** Small rounded label with a background colour. */
 @Composable
-fun Pill(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, fontSize: Int = 11, border: Color? = null) {
-    Box(
+fun Pill(
+    text: String,
+    bg: Color,
+    fg: Color,
+    modifier: Modifier = Modifier,
+    fontSize: Int = 11,
+    border: Color? = null,
+    icon: ImageVector? = null,
+) {
+    Row(
         modifier
             .clip(RoundedCornerShape(6.dp))
             .background(bg)
             .then(if (border != null) Modifier.border(1.dp, border, RoundedCornerShape(6.dp)) else Modifier)
             .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size((fontSize + 3).dp))
+            Spacer(Modifier.width(4.dp))
+        }
         Text(text, color = fg, fontSize = fontSize.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** A small Material icon followed by text, in one colour (replaces emoji-prefixed labels). */
+@Composable
+fun IconLabel(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = FarmColors.TextLabel,
+    iconColor: Color = color,
+    fontSize: Int = 13,
+    fontWeight: FontWeight = FontWeight.Normal,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size((fontSize + 3).dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text, color = color, fontSize = fontSize.sp, fontWeight = fontWeight, maxLines = maxLines,
+            overflow = if (maxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis,
+        )
     }
 }
 
 /** Coloured banner for errors / success messages. */
 @Composable
-fun Banner(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, borderColor: Color? = null, trailing: @Composable (() -> Unit)? = null) {
+fun Banner(
+    text: String,
+    bg: Color,
+    fg: Color,
+    modifier: Modifier = Modifier,
+    borderColor: Color? = null,
+    icon: ImageVector? = null,
+    trailing: @Composable (() -> Unit)? = null,
+) {
     Row(
         modifier
             .fillMaxWidth()
@@ -487,6 +540,10 @@ fun Banner(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, bo
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+        }
         Text(text, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }

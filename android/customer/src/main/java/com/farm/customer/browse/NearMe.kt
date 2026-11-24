@@ -31,12 +31,16 @@ private fun granted(context: Context) =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-/** The phone's current position (a coarse fix is enough to search nearby), or null if none within 10 s. */
+/**
+ * The phone's current position, or null if none within 10 s. A coarse fix is enough to search
+ * nearby; [precise] asks for GPS accuracy (a delivery address).
+ */
 @SuppressLint("MissingPermission") // callers check the permission first
-private suspend fun currentPosition(context: Context): LocationCoords? = withTimeoutOrNull(10_000) {
+private suspend fun currentPosition(context: Context, precise: Boolean = false): LocationCoords? = withTimeoutOrNull(if (precise) 15_000 else 10_000) {
     val client = LocationServices.getFusedLocationProviderClient(context)
+    val priority = if (precise) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
     val loc = runCatching {
-        client.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token).await()
+        client.getCurrentLocation(priority, CancellationTokenSource().token).await()
             ?: client.lastLocation.await()
     }.getOrNull()
     loc?.let { nearMe(it.latitude, it.longitude) }
@@ -55,11 +59,11 @@ sealed interface NearMeResult {
  * granted or has never been asked (so a "no" is not asked again on every launch).
  */
 @Composable
-fun rememberNearMe(auto: Boolean, onResult: (NearMeResult) -> Unit): () -> Unit {
+fun rememberNearMe(auto: Boolean, precise: Boolean = false, onResult: (NearMeResult) -> Unit): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var asked by remember { mutableStateOf(false) }
-    fun locate() = scope.launch { onResult(currentPosition(context)?.let { NearMeResult.Found(it) } ?: NearMeResult.Unavailable) }
+    fun locate() = scope.launch { onResult(currentPosition(context, precise)?.let { NearMeResult.Found(it) } ?: NearMeResult.Unavailable) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result.values.any { it }) locate() else onResult(NearMeResult.Denied)
     }

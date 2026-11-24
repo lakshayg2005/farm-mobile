@@ -1,5 +1,15 @@
 package com.farm.customer.ui
 
+import com.farm.core.ui.rememberRefreshTick
+import com.farm.core.ui.PullRefresh
+import com.farm.customer.checkout.changedFields
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import com.farm.core.ui.IconLabel
+import androidx.compose.ui.graphics.vector.ImageVector
+
 import com.farm.customer.orders.harvestCosts
 
 import com.farm.core.ui.StatusChip
@@ -186,7 +196,8 @@ fun OrdersScreen(onBack: (() -> Unit)?, onHome: () -> Unit, onOrder: (String) ->
 
         // Load, then refresh the first page every 30 s while the list is open: statuses change on
         // the server (the farmer packs, logistics pools) and the rail should follow without a restart.
-        LaunchedEffect(reload) {
+        val tick = rememberRefreshTick()
+        LaunchedEffect(reload, tick) {
             if (refreshing) loadedMore = false // pull-to-refresh starts over from the first page
             while (true) {
                 load { OrderApi.listOrders(null) }
@@ -235,7 +246,7 @@ fun OrdersScreen(onBack: (() -> Unit)?, onHome: () -> Unit, onOrder: (String) ->
                     }
                     if (loaded && !failed && orders.isEmpty()) item {
                         FarmCard(Modifier.fillMaxWidth()) {
-                            Text("🛒", fontSize = 40.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+                            Icon(Icons.Rounded.ShoppingCart, null, tint = FarmColors.TextMuted, modifier = Modifier.align(Alignment.CenterHorizontally).size(44.dp))
                             FText("No orders yet", variant = TextVariant.H2, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                             FText("Browse produce and place your first order!", variant = TextVariant.Caption, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                         }
@@ -311,7 +322,8 @@ private fun rememberOrder(
     var order by remember { mutableStateOf<OrderDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
-    LaunchedEffect(orderId, refreshKey) {
+    val tick = rememberRefreshTick()
+    LaunchedEffect(orderId, refreshKey, tick) {
         while (true) {
             load { OrderApi.getOrder(orderId) }
                 .onSuccess { order = it; error = null }
@@ -408,7 +420,7 @@ fun OrderDetailScreen(orderId: String, onBack: () -> Unit, onHome: () -> Unit, o
                         addressLabel(order.deliveryAddress)?.let {
                             Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).background(FarmColors.Background).padding(10.dp)) {
                                 FText("Delivery Address", variant = TextVariant.Label)
-                                FText("📍 $it", variant = TextVariant.Caption, color = FarmColors.TextLabel)
+                                IconLabel(Icons.Rounded.LocationOn, it, fontSize = 12, iconColor = FarmColors.Primary)
                             }
                         }
                     }
@@ -430,7 +442,7 @@ fun OrderDetailScreen(orderId: String, onBack: () -> Unit, onHome: () -> Unit, o
                     }
                     order.rating?.let { r ->
                         FarmCard(Modifier.fillMaxWidth()) {
-                            FText("Your rating: ${"★".repeat(r.score)}${"☆".repeat(5 - r.score)}", variant = TextVariant.Label)
+                            YourRating(r.score)
                             r.comment?.let { FText(it, variant = TextVariant.Caption) }
                         }
                     }
@@ -467,6 +479,18 @@ fun OrderDetailScreen(orderId: String, onBack: () -> Unit, onHome: () -> Unit, o
         }
     }
 
+/** "Your rating" and the score as five star icons. */
+@Composable
+private fun YourRating(score: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics { contentDescription = "Your rating: $score of 5" }) {
+        FText("Your rating", variant = TextVariant.Label)
+        Spacer(Modifier.width(8.dp))
+        (1..5).forEach { n ->
+            Icon(if (n <= score) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, tint = FarmColors.Warning, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
 @Composable
 private fun LineRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
@@ -499,7 +523,8 @@ fun NotificationsScreen(
         var actionError by remember { mutableStateOf<String?>(null) }
         var loadingMore by remember { mutableStateOf(false) }
 
-        LaunchedEffect(reload, unreadOnly) {
+        val tick = rememberRefreshTick()
+        LaunchedEffect(reload, unreadOnly, tick) {
             load { NotificationApi.list(null, unreadOnly = unreadOnly) }
                 .onSuccess { page ->
                     items = newestFirst(page.items); unread = page.unreadCount; cursor = page.nextCursor; failure = null
@@ -545,7 +570,7 @@ fun NotificationsScreen(
                         }
                         items.isEmpty() -> item {
                             FarmCard(Modifier.fillMaxWidth()) {
-                                Text("🔔", fontSize = 40.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+                                Icon(Icons.Rounded.NotificationsNone, null, tint = FarmColors.TextMuted, modifier = Modifier.align(Alignment.CenterHorizontally).size(44.dp))
                                 FText(if (unreadOnly) "No unread notifications" else "All caught up!", variant = TextVariant.H2, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                                 FText(
                                     if (unreadOnly) "You have read everything. Switch to All to see older ones."
@@ -605,10 +630,12 @@ fun NotificationsScreen(
 fun TrackingScreen(orderId: String, onBack: () -> Unit, onOrders: () -> Unit) {
     val context = LocalContext.current
     var refresh by remember { mutableIntStateOf(0) }
-    val (order, _, loaded) = rememberOrder(orderId, refresh) { if (it.status == "COMPLETED" || it.status == "CANCELLED") null else 15_000L }
+    var refreshing by remember { mutableStateOf(false) }
+    val tick = rememberRefreshTick()
+    val (order, _, loaded) = rememberOrder(orderId, refresh, onLoaded = { refreshing = false }) { if (it.status == "COMPLETED" || it.status == "CANCELLED") null else 15_000L }
     var track by remember { mutableStateOf<Track?>(null) }
     val latestOrder by androidx.compose.runtime.rememberUpdatedState(order)
-    LaunchedEffect(orderId) {
+    LaunchedEffect(orderId, refresh, tick) {
         while (true) {
             load { LogisticsApi.track(orderId) }.onSuccess { track = it } // keep the last position on a failed poll
             val o = latestOrder
@@ -639,6 +666,7 @@ fun TrackingScreen(orderId: String, onBack: () -> Unit, onOrders: () -> Unit) {
         val eta = etaLabel(t?.eta, now)
         val seen = seenLabel(t?.partnerUpdatedAt, now)
 
+        PullRefresh(refreshing, { refreshing = true; refresh++ }, Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             FText(phase.text, variant = TextVariant.H2, fontSize = 18.sp)
             val dropStop = t?.stop
@@ -678,12 +706,13 @@ fun TrackingScreen(orderId: String, onBack: () -> Unit, onOrders: () -> Unit) {
             }
             order.rating?.let { r ->
                 FarmCard(Modifier.fillMaxWidth()) {
-                    FText("Your rating: ${"★".repeat(r.score)}", variant = TextVariant.Label)
+                    YourRating(r.score)
                     r.comment?.let { FText(it, variant = TextVariant.Caption) }
                 }
             }
             if (canRate(order.status, order.rating != null)) RatingForm(order.id) { refresh++ }
             FarmButton("Back to orders", onOrders, Modifier.fillMaxWidth(), variant = ButtonVariant.Secondary)
+        }
         }
     }
 }
@@ -692,7 +721,8 @@ fun TrackingScreen(orderId: String, onBack: () -> Unit, onOrders: () -> Unit) {
 @Composable
 private fun TrackingMap(partner: LatLng?, drop: LatLng?, pickup: LatLng?) {
     val points = listOfNotNull(pickup?.let { "pickup" to it }, drop?.let { "drop" to it }, partner?.let { "partner" to it })
-    val glyph = mapOf("pickup" to "🌾", "drop" to "🏠", "partner" to "🛵")
+    val glyph = mapOf("pickup" to Icons.Rounded.Agriculture, "drop" to Icons.Rounded.Home, "partner" to Icons.Rounded.TwoWheeler)
+    val tint = mapOf("pickup" to com.farm.core.ui.PinColors.Pickup, "drop" to com.farm.core.ui.PinColors.Drop, "partner" to com.farm.core.ui.PinColors.Me)
     BoxWithConstraints(Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(12.dp)).background(FarmColors.PrimaryLight)) {
         val density = LocalDensity.current
         val w = with(density) { maxWidth.toPx() }
@@ -703,7 +733,7 @@ private fun TrackingMap(partner: LatLng?, drop: LatLng?, pickup: LatLng?) {
             Box(
                 Modifier.offset { IntOffset((m.x - half).roundToInt(), (m.y - half).roundToInt()) }.size(32.dp).clip(CircleShape).background(Color.White),
                 contentAlignment = Alignment.Center,
-            ) { Text(glyph[m.key] ?: "•", fontSize = 18.sp) }
+            ) { Icon(glyph[m.key] ?: Icons.Rounded.Place, null, tint = tint[m.key] ?: FarmColors.TextDark, modifier = Modifier.size(20.dp)) }
         }
         if (markers.isEmpty()) FText("The map appears once a partner is on the way.", variant = TextVariant.Caption, modifier = Modifier.align(Alignment.Center))
     }
@@ -726,7 +756,11 @@ private fun RatingForm(orderId: String, onRated: () -> Unit) {
         FText("How was your delivery?", variant = TextVariant.H2, fontSize = 18.sp)
         Row(Modifier.padding(vertical = 8.dp)) {
             (1..5).forEach { n ->
-                Text("★", fontSize = 34.sp, color = if (n <= score) FarmColors.Warning else FarmColors.InputBorder, modifier = Modifier.clickable { score = n }.padding(end = 6.dp))
+                Icon(
+                    if (n <= score) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Rate $n of 5",
+                    tint = if (n <= score) FarmColors.Warning else FarmColors.InputBorder,
+                    modifier = Modifier.clickable { score = n }.padding(end = 6.dp).size(38.dp),
+                )
             }
         }
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, FarmColors.Border, RoundedCornerShape(8.dp)).padding(10.dp)) {
@@ -787,8 +821,10 @@ fun HarvestScreen(reservationId: String, onBack: () -> Unit, onTrack: (String) -
     var date by remember { mutableStateOf(dates.first()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    val tick = rememberRefreshTick()
 
-    LaunchedEffect(reservationId, reload) {
+    LaunchedEffect(reservationId, reload, tick) {
         while (true) {
             load { LandApi.getMyReservations().find { it.id == reservationId }?.status }
                 .onSuccess { reservationStatus = it }
@@ -796,6 +832,7 @@ fun HarvestScreen(reservationId: String, onBack: () -> Unit, onTrack: (String) -
                 .onSuccess { order = it; loadError = null }
                 .onFailure { loadError = loadErrorMessage(it) }
             loaded = true
+            refreshing = false
             if (!shouldPollHarvest(harvestStageOf(order?.status, order?.harvestOption))) break
             delay(15_000)
         }
@@ -835,6 +872,7 @@ fun HarvestScreen(reservationId: String, onBack: () -> Unit, onTrack: (String) -
 
     Column(Modifier.fillMaxSize().background(FarmColors.Background)) {
         ScreenHeader("Your harvest", onBack)
+        PullRefresh(refreshing, { refreshing = true; reload++ }, Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (o == null && loadError != null) {
                 FarmCard(Modifier.fillMaxWidth()) {
@@ -860,24 +898,18 @@ fun HarvestScreen(reservationId: String, onBack: () -> Unit, onTrack: (String) -
             if (choosing) {
                 val costs = o?.let { harvestCosts(it.total, it.balanceDue, it.deliveryFee) }
                 OptionCard(
-                    option == "DELIVERY", "🚚  Deliver it to me",
+                    option == "DELIVERY", Icons.Rounded.LocalShipping, "Deliver it to me",
                     "Pooled doorstep delivery." + (costs?.let { " You pay ${formatRupees(it.deliveryPayOnArrival)} when it arrives (balance plus delivery)." } ?: " The balance is paid when it arrives."),
                 ) { option = "DELIVERY"; message = null }
                 OptionCard(
-                    option == "BUYBACK", "💰  Buy-back",
+                    option == "BUYBACK", Icons.Rounded.CurrencyRupee, "Buy-back",
                     costs?.let { "You pay the balance of ${formatRupees(it.buybackPayNow)} now and are credited ${formatRupees(it.buybackCredit)} (90 % of the total) at once. Nothing is delivered." }
                         ?: "The farmer buys your harvest back and credits you 90 % of its value at once. Nothing is delivered.",
                 ) { option = "BUYBACK"; message = null }
                 if (option == "DELIVERY") {
                     FarmCard(Modifier.fillMaxWidth()) {
                         FText("Delivery address", variant = TextVariant.Label)
-                        FarmInput(form.line1, { form = form.copy(line1 = it) }, placeholder = "Street address", error = errors["line1"])
-                        FarmInput(form.line2, { form = form.copy(line2 = it) }, placeholder = "Area (optional)")
-                        FarmInput(form.city, { form = form.copy(city = it) }, placeholder = "City", error = errors["city"])
-                        FarmInput(form.pincode, { form = form.copy(pincode = it) }, placeholder = "Pincode", error = errors["pincode"], maxLength = 6)
-                        FarmInput(form.contactPhone, { form = form.copy(contactPhone = it) }, placeholder = "Phone (optional)", error = errors["contactPhone"])
-                        FarmInput(form.lat, { form = form.copy(lat = it) }, placeholder = "Latitude", error = errors["lat"])
-                        FarmInput(form.lng, { form = form.copy(lng = it) }, placeholder = "Longitude", error = errors["lng"])
+                        DeliveryAddressFields(form, errors) { next -> errors = errors - changedFields(form, next); form = next }
                         FText("Delivery date", variant = TextVariant.Label, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { dates.forEach { d -> Chip(d.substring(5), d == date, { date = d }) } }
                     }
@@ -904,17 +936,18 @@ fun HarvestScreen(reservationId: String, onBack: () -> Unit, onTrack: (String) -
             }
             FarmButton("Back", onBack, Modifier.fillMaxWidth(), variant = ButtonVariant.Secondary)
         }
+        }
     }
 }
 
 @Composable
-private fun OptionCard(selected: Boolean, title: String, text: String, onClick: () -> Unit) {
+private fun OptionCard(selected: Boolean, icon: ImageVector, title: String, text: String, onClick: () -> Unit) {
     FarmCard(
         Modifier.fillMaxWidth(), onClick = onClick,
         background = if (selected) FarmColors.PrimaryLight else Color.White,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) FarmColors.Primary else FarmColors.Border),
     ) {
-        FText(title, variant = TextVariant.Label, fontSize = 15.sp)
-        FText(text, variant = TextVariant.Caption)
+        IconLabel(icon, title, color = FarmColors.TextDark, iconColor = FarmColors.Primary, fontSize = 15, fontWeight = FontWeight.SemiBold)
+        FText(text, variant = TextVariant.Caption, modifier = Modifier.padding(top = 2.dp))
     }
 }

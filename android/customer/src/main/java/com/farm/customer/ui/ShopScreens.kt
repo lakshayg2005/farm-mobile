@@ -1,5 +1,15 @@
 package com.farm.customer.ui
 
+import com.farm.core.ui.rememberRefreshTick
+import com.farm.core.ui.PullRefresh
+import com.farm.customer.checkout.changedFields
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import com.farm.core.ui.IconLabel
+import androidx.compose.ui.graphics.vector.ImageVector
+
 import com.farm.customer.orders.stageText
 
 import com.farm.customer.orders.orderNextStep
@@ -119,12 +129,15 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, onCart: () -> Uni
     var reload by remember { mutableIntStateOf(0) }
     var qty by remember { mutableDoubleStateOf(1.0) }
     var added by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    val tick = rememberRefreshTick()
 
-    LaunchedEffect(listingId, reload) {
+    LaunchedEffect(listingId, reload, tick) {
         load { BrowseRepository.fetchDetail(listingId) }
             .onSuccess { listing = it; error = null }
             .onFailure { error = it }
         loading = false
+        refreshing = false
     }
     LaunchedEffect(added) { if (added != null) { delay(4000); added = null } }
 
@@ -133,7 +146,7 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, onCart: () -> Uni
     if (l == null) {
         Column(Modifier.fillMaxSize().background(FarmColors.Background).padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             if ((error as? ApiException)?.status == 404) {
-                EmptyState("Listing not found", "This listing may have been removed or sold out.", icon = "🔍")
+                EmptyState("Listing not found", "This listing may have been removed or sold out.", icon = Icons.Rounded.SearchOff)
             } else {
                 ErrorState(error, { loading = true; reload++ }, title = "Could not load this listing")
             }
@@ -141,17 +154,19 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, onCart: () -> Uni
         }
         return
     }
+    val photo = l.photos.firstOrNull()
     val inCart = cart.items.any { it.listingId == l.id }
 
     Column(Modifier.fillMaxSize().background(FarmColors.Background)) {
         ScreenHeader("Produce Details", onBack) {
-            Text("🛒 ${cart.items.size}", color = FarmColors.Primary, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onCart).padding(6.dp))
+            IconLabel(Icons.Rounded.ShoppingCart, "${cart.items.size}", Modifier.clickable(onClick = onCart).padding(6.dp), color = FarmColors.Primary, fontSize = 15, fontWeight = FontWeight.Bold)
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        PullRefresh(refreshing, { refreshing = true; reload++ }, Modifier.weight(1f)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (l.photos.isEmpty()) {
                 Box(Modifier.fillMaxWidth().height(230.dp).clip(RoundedCornerShape(14.dp)).background(FarmColors.PrimaryLight)) {
                     Text("No photos yet", color = FarmColors.TextMuted, modifier = Modifier.align(Alignment.Center))
-                    if (l.isOrganic) Pill("🌱 Organic", FarmColors.Primary, Color.White, Modifier.align(Alignment.TopEnd).padding(10.dp), fontSize = 12)
+                    if (l.isOrganic) Pill("Organic", FarmColors.Primary, Color.White, Modifier.align(Alignment.TopEnd).padding(10.dp), fontSize = 12, icon = Icons.Rounded.Eco)
                 }
             } else {
                 // Every photo of the listing.
@@ -159,9 +174,16 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, onCart: () -> Uni
                     items(l.photos, key = { it.id }) { p ->
                         Box(Modifier.fillParentMaxWidth(if (l.photos.size == 1) 1f else 0.85f).height(230.dp).clip(RoundedCornerShape(14.dp)).background(FarmColors.PrimaryLight)) {
                             AsyncImage(p.url, "${l.cropName} photo", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            if (l.isOrganic) Pill("🌱 Organic", FarmColors.Primary, Color.White, Modifier.align(Alignment.TopEnd).padding(10.dp), fontSize = 12)
+                            VerifiedBadge(p, compact = true, modifier = Modifier.align(Alignment.TopStart).padding(10.dp))
+                            if (l.isOrganic) Pill("Organic", FarmColors.Primary, Color.White, Modifier.align(Alignment.TopEnd).padding(10.dp), fontSize = 12, icon = Icons.Rounded.Eco)
                         }
                     }
+                }
+            }
+            if (photo != null) {
+                FarmCard(Modifier.fillMaxWidth()) {
+                    FText("Photo verification", variant = TextVariant.Label, modifier = Modifier.padding(bottom = 8.dp))
+                    VerifiedBadge(photo, compact = false)
                 }
             }
             FarmCard(Modifier.fillMaxWidth()) {
@@ -184,19 +206,20 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, onCart: () -> Uni
             FarmCard(Modifier.fillMaxWidth()) {
                 FText("Farm & Origin", variant = TextVariant.H2, fontSize = 18.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { InfoRow("🏡", "Farm Name", l.farmName) }
+                    Box(Modifier.weight(1f)) { InfoRow(Icons.Rounded.Agriculture, "Farm Name", l.farmName) }
                     FavouriteButton(l.farmId, l.farmName)
                 }
                 Column(Modifier.padding(start = 34.dp)) { FarmRatingText(l.farmRating, l.farmRatingCount) }
-                l.farmerName?.let { InfoRow("👨‍🌾", "Farmer", it) }
-                placeOf(l)?.let { InfoRow("📍", "Village and district", it) }
-                InfoRow("📅", "Harvest Date", formatHarvestDate(l.harvestDate))
+                l.farmerName?.let { InfoRow(Icons.Rounded.Person, "Farmer", it) }
+                placeOf(l)?.let { InfoRow(Icons.Rounded.LocationOn, "Village and district", it) }
+                InfoRow(Icons.Rounded.Event, "Harvest Date", formatHarvestDate(l.harvestDate))
             }
             added?.let {
-                Banner(it, FarmColors.PrimaryLight, FarmColors.PrimaryDark) {
-                    Text("View Cart →", color = FarmColors.Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCart))
+                Banner(it, FarmColors.PrimaryLight, FarmColors.PrimaryDark, icon = Icons.Rounded.CheckCircle) {
+                    Text("View Cart", color = FarmColors.Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCart))
                 }
             }
+        }
         }
         // Sticky purchase bar
         Row(
@@ -217,16 +240,16 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, onCart: () -> Uni
             }
             FarmButton(if (inCart) "Add More" else "Add to Cart", {
                 CartStore.add(l.toCartItem(qty))
-                added = "✓ Added ${formatQty(qty)} ${l.unit} to cart!"
+                added = "Added ${formatQty(qty)} ${l.unit} to cart"
             })
         }
     }
 }
 
 @Composable
-private fun InfoRow(icon: String, label: String, value: String) {
+private fun InfoRow(icon: ImageVector, label: String, value: String) {
     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
-        Text(icon, fontSize = 18.sp)
+        Icon(icon, null, tint = FarmColors.Primary, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(10.dp))
         Column { FText(label, variant = TextVariant.Label); FText(value) }
     }
@@ -310,12 +333,6 @@ fun CheckoutScreen(onBack: () -> Unit, onCart: () -> Unit, onLogin: () -> Unit, 
     val breakdown = cart.breakdown(fee)
     val total = breakdown.total
 
-    fun set(field: String, update: AddressForm.(String) -> AddressForm): (String) -> Unit = { v ->
-        form = form.update(v)
-        errors = errors - field
-        error = null
-    }
-
     fun placeOrder() {
         when (val r = validateAddress(form)) {
             is AddressResult.Invalid -> errors = r.errors
@@ -368,13 +385,11 @@ fun CheckoutScreen(onBack: () -> Unit, onCart: () -> Unit, onLogin: () -> Unit, 
             DeliveryChoiceCard(mode, { mode = it; error = null }, options)
             FarmCard(Modifier.fillMaxWidth()) {
                 FText("Delivery address", variant = TextVariant.H2, fontSize = 18.sp)
-                FarmInput(form.line1, set("line1") { copy(line1 = it) }, label = "Street address", error = errors["line1"])
-                FarmInput(form.line2, set("line2") { copy(line2 = it) }, label = "Landmark (optional)")
-                FarmInput(form.city, set("city") { copy(city = it) }, label = "City", error = errors["city"])
-                FarmInput(form.pincode, set("pincode") { copy(pincode = it) }, label = "Pincode", error = errors["pincode"], keyboardType = KeyboardType.Number, maxLength = 6)
-                FarmInput(form.contactPhone, set("contactPhone") { copy(contactPhone = it) }, label = "Phone (optional)", error = errors["contactPhone"], keyboardType = KeyboardType.Phone)
-                FarmInput(form.lat, set("lat") { copy(lat = it) }, label = "Latitude", error = errors["lat"], keyboardType = KeyboardType.Decimal)
-                FarmInput(form.lng, set("lng") { copy(lng = it) }, label = "Longitude", error = errors["lng"], keyboardType = KeyboardType.Decimal)
+                DeliveryAddressFields(form, errors) { next ->
+                    errors = errors - changedFields(form, next)
+                    error = null
+                    form = next
+                }
                 FarmInput(notes, { notes = it }, label = "Note for the farmer (optional)")
             }
             error?.let { e -> CheckoutErrorCard(e, cart, onLogin) }
@@ -481,6 +496,13 @@ fun OrderPlacedScreen(onTrack: (String) -> Unit, onOrders: () -> Unit, onShop: (
     // The order service confirms payment through events a few seconds later: poll each new order
     // briefly so the status shown is the server's, not a guess.
     val statuses = remember { mutableStateMapOf<String, String>() }
+    var refreshing by remember { mutableStateOf(false) }
+    var reloadPlaced by remember { mutableIntStateOf(0) }
+    LaunchedEffect(reloadPlaced) {
+        if (reloadPlaced == 0) return@LaunchedEffect
+        checkout?.orders?.forEach { o -> load { OrderApi.getOrder(o.id) }.onSuccess { statuses[o.id] = it.status } }
+        refreshing = false
+    }
     LaunchedEffect(checkout) {
         val orders = checkout?.orders ?: return@LaunchedEffect
         var waited = 0L
@@ -501,8 +523,9 @@ fun OrderPlacedScreen(onTrack: (String) -> Unit, onOrders: () -> Unit, onShop: (
             }
             return
         }
+        PullRefresh(refreshing, { refreshing = true; reloadPlaced++ }, Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            FText("Order placed ✓", variant = TextVariant.H1)
+            IconLabel(Icons.Rounded.CheckCircle, "Order placed", color = FarmColors.TextDark, iconColor = FarmColors.Primary, fontSize = 24, fontWeight = FontWeight.Bold)
             FText(
                 if (checkout.orders.size == 1) "Your order is confirmed." else "Your cart was split into ${checkout.orders.size} orders, one per farm.",
                 variant = TextVariant.Caption,
@@ -521,6 +544,7 @@ fun OrderPlacedScreen(onTrack: (String) -> Unit, onOrders: () -> Unit, onShop: (
             FText("Paid ${formatRupees(checkout.total)}", variant = TextVariant.H2)
             FarmButton("View my orders", onOrders, Modifier.fillMaxWidth())
             FarmButton("Continue shopping", onShop, Modifier.fillMaxWidth(), variant = ButtonVariant.Secondary)
+        }
         }
     }
 }

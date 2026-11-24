@@ -1,5 +1,13 @@
 package com.farm.customer.ui
 
+import com.farm.core.ui.rememberRefreshTick
+import com.farm.core.ui.PullRefresh
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import com.farm.core.ui.IconLabel
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,6 +89,7 @@ import com.farm.customer.reservation.depositConfirmed
 import com.farm.customer.reservation.depositErrorMessage
 import com.farm.customer.reservation.isClosed
 import com.farm.customer.reservation.nextStepText
+import com.farm.customer.reservation.photoBadge
 import com.farm.customer.reservation.reservationStage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -118,7 +128,8 @@ fun ReservationScreen(reservationId: String, onBack: () -> Unit, onHarvest: (Str
 
     // Load, then refresh every 30 s while the reservation is still moving, so a new crop update
     // posted on the website appears without leaving the screen.
-    LaunchedEffect(reservationId, reload) {
+    val tick = rememberRefreshTick()
+    LaunchedEffect(reservationId, reload, tick) {
         while (true) {
             load { findReservation(reservationId) }
                 .onSuccess { reservation = it; error = null }
@@ -329,7 +340,16 @@ private fun Timeline(updates: List<CropUpdateOut>?, error: String?, onRetry: () 
             val stage = cropStageLabel(u.stage)
             FarmCard(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FText("${stage.icon} ${stage.label}", variant = TextVariant.Label, modifier = Modifier.weight(1f))
+                    IconLabel(
+                        when (stage.icon) {
+                            "SOWN" -> Icons.Rounded.Grass
+                            "GROWING" -> Icons.Rounded.Eco
+                            "FLOWERING" -> Icons.Rounded.LocalFlorist
+                            else -> Icons.Rounded.Timeline
+                        },
+                        stage.label, Modifier.weight(1f), color = FarmColors.TextDark, iconColor = FarmColors.Primary,
+                        fontSize = 14, fontWeight = FontWeight.SemiBold,
+                    )
                     if (u.createdAt.isNotEmpty()) FText(formatDateTime(u.createdAt), variant = TextVariant.Caption)
                 }
                 u.note?.takeIf { it.isNotBlank() }?.let {
@@ -359,6 +379,15 @@ private fun CropPhoto(mediaId: String) {
             url != null -> AsyncImage(model = url, contentDescription = "Crop photo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             failed -> FText("Photo unavailable", variant = TextVariant.Caption)
             else -> CircularProgressIndicator(Modifier.size(24.dp), color = FarmColors.Primary, strokeWidth = 2.dp)
+        }
+        if (m != null) {
+            Pill(
+                photoBadge(m.isGeoVerified),
+                if (m.isGeoVerified) FarmColors.PrimaryLight else FarmColors.WarningBg,
+                if (m.isGeoVerified) FarmColors.Primary else FarmColors.Warning,
+                Modifier.align(Alignment.TopStart).padding(8.dp),
+                icon = if (m.isGeoVerified) Icons.Rounded.Verified else Icons.Rounded.ErrorOutline,
+            )
         }
     }
 }

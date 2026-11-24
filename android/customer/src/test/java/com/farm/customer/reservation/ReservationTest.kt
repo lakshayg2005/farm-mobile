@@ -113,4 +113,10 @@ class ReservationTest {
         assertEquals("2026-11-22T10:00:00Z", r.expiresAt)
         assertEquals("Green chilli", cropName(r.cropId))
     }
+
+    @Test
+    fun onlyVerifiedPhotosGetTheGreenBadge() {
+        assertEquals("Verified on site", photoBadge(true))
+        assertEquals("Unverified", photoBadge(false))
+    }
 }

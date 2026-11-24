@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -62,7 +63,7 @@ fun EmptyState(
     title: String,
     text: String,
     modifier: Modifier = Modifier,
-    icon: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     action: String? = null,
     onAction: () -> Unit = {},
 ) {
@@ -70,7 +71,12 @@ fun EmptyState(
         modifier.fillMaxWidth().padding(24.dp),
         verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        icon?.let { Text(it, fontSize = 40.sp) }
+        icon?.let {
+            androidx.compose.material3.Icon(
+                it, contentDescription = null, tint = FarmColors.TextMuted,
+                modifier = Modifier.padding(bottom = 8.dp).size(44.dp),
+            )
+        }
         FText(title, variant = TextVariant.H2, textAlign = TextAlign.Center)
         FText(text, variant = TextVariant.Caption, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
         if (action != null) FarmButton(action, onAction, Modifier.padding(top = 12.dp), variant = ButtonVariant.Secondary)

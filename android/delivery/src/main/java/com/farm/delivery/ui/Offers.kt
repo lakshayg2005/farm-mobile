@@ -1,5 +1,13 @@
 package com.farm.delivery.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import com.farm.core.ui.IconLabel
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -57,10 +65,10 @@ import java.util.Locale
 /** How often open offers are re-read while the route screen is shown (pushes also refresh it). */
 const val OFFER_POLL_MS = 10_000L
 
-/** "📦 2 pickups · 🏠 2 drops". */
+/** "2 pickups · 2 drops". */
 fun offerCounts(o: RouteOffer): String =
-    "📦 ${o.pickupCount} ${if (o.pickupCount == 1) "pickup" else "pickups"} · " +
-        "🏠 ${o.dropCount} ${if (o.dropCount == 1) "drop" else "drops"}"
+    "${o.pickupCount} ${if (o.pickupCount == 1) "pickup" else "pickups"} · " +
+        "${o.dropCount} ${if (o.dropCount == 1) "drop" else "drops"}"
 
 /** "1.2 km", or "850 m" under a kilometre. */
 fun formatDistance(km: Double): String =
@@ -205,10 +213,14 @@ private fun OfferCard(
         }
         OfferMap(o, meLat, meLng, Modifier.padding(top = 8.dp))
         TripStats(trip, Modifier.padding(top = 10.dp))
-        FText(
-            offerCounts(o) + (o.firstPickup?.address?.takeIf { it.isNotBlank() }?.let { " · starts at $it" } ?: ""),
-            variant = TextVariant.Caption, color = FarmColors.TextLabel, modifier = Modifier.padding(top = 8.dp),
-        )
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconLabel(Icons.Rounded.Inventory2, "${o.pickupCount} ${if (o.pickupCount == 1) "pickup" else "pickups"}", color = PinColors.Pickup, fontSize = 12, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.width(10.dp))
+            IconLabel(Icons.Rounded.Home, "${o.dropCount} ${if (o.dropCount == 1) "drop" else "drops"}", color = PinColors.Drop, fontSize = 12, fontWeight = FontWeight.SemiBold)
+        }
+        o.firstPickup?.address?.takeIf { it.isNotBlank() }?.let {
+            IconLabel(Icons.Rounded.Agriculture, "Starts at $it", Modifier.padding(top = 4.dp), fontSize = 12)
+        }
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             FarmButton("Decline", onDecline, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = busy == null)
             FarmButton(
@@ -277,16 +289,13 @@ fun MapLegend(modifier: Modifier = Modifier, showMe: Boolean = true) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (showMe) LegendItem("●", "You", PinColors.Me)
-        LegendItem("📦", "Pickup", PinColors.Pickup)
-        LegendItem("🏠", "Drop", PinColors.Drop)
+        if (showMe) LegendItem(Icons.Rounded.MyLocation, "You", PinColors.Me)
+        LegendItem(Icons.Rounded.Inventory2, "Pickup", PinColors.Pickup)
+        LegendItem(Icons.Rounded.Home, "Drop", PinColors.Drop)
     }
 }
 
 @Composable
-private fun LegendItem(glyph: String, label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(glyph, fontSize = 11.sp, color = color)
-        Text(" $label", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = color)
-    }
+private fun LegendItem(icon: ImageVector, label: String, color: Color) {
+    IconLabel(icon, label, color = color, fontSize = 11, fontWeight = FontWeight.SemiBold)
 }

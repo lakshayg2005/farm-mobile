@@ -1,5 +1,9 @@
 package com.farm.core.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -83,7 +87,7 @@ fun TeamScreen(onBack: () -> Unit, title: String = "Our Team") {
                         Modifier.size(68.dp).clip(CircleShape).background(FarmColors.PrimaryLight)
                             .border(2.dp, FarmColors.Primary, CircleShape),
                         contentAlignment = Alignment.Center,
-                    ) { Text("🎓", fontSize = 32.sp) }
+                    ) { Icon(Icons.Rounded.School, null, tint = FarmColors.Primary, modifier = Modifier.size(34.dp)) }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Pill("PROJECT GUIDE & MENTOR", FarmColors.PrimaryLight, FarmColors.Primary)
@@ -104,7 +108,7 @@ fun TeamScreen(onBack: () -> Unit, title: String = "Our Team") {
 
             teams.forEachIndexed { idx, team ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
-                    Text(if (idx == 0) "📱" else "💻", fontSize = 24.sp)
+                    Icon(if (idx == 0) Icons.Rounded.PhoneAndroid else Icons.Rounded.Laptop, null, tint = FarmColors.Primary, modifier = Modifier.size(26.dp))
                     Spacer(Modifier.width(10.dp))
                     Column {
                         FText(team.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FarmColors.TextDark)
@@ -141,7 +145,7 @@ fun TeamScreen(onBack: () -> Unit, title: String = "Our Team") {
                                     .padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("🐙", fontSize = 14.sp)
+                                Icon(Icons.Rounded.Code, null, tint = FarmColors.Info, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("@${m.github}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FarmColors.Info)
                             }

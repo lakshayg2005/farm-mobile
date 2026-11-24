@@ -1,5 +1,10 @@
 package com.farm.customer.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import com.farm.core.ui.IconLabel
+
 import com.farm.customer.browse.NEAR_ME
 
 import androidx.compose.foundation.BorderStroke
@@ -83,9 +88,9 @@ import kotlinx.coroutines.launch
 
 private fun cap(s: String) = s.replaceFirstChar { it.uppercase() }
 
-/** "📍 Village, District · 2.3 km away", leaving out what the API did not return. */
+/** "Village, District · 2.3 km away", leaving out what the API did not return. */
 private fun placeLine(plot: PlotItem): String =
-    "📍 " + (listOf(plot.village, plot.district).filter { it.isNotEmpty() } + "${formatDistance(plot.distanceM)} away").joinToString(" · ")
+    (listOf(plot.village, plot.district).filter { it.isNotEmpty() } + "${formatDistance(plot.distanceM)} away").joinToString(" · ")
 
 @Composable
 fun PlotCard(plot: PlotItem, onReserve: (PlotItem) -> Unit) {
@@ -93,7 +98,7 @@ fun PlotCard(plot: PlotItem, onReserve: (PlotItem) -> Unit) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 FText(plot.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FarmColors.TextDark)
-                FText(placeLine(plot), variant = TextVariant.Caption, modifier = Modifier.padding(top = 2.dp))
+                IconLabel(Icons.Rounded.LocationOn, placeLine(plot), Modifier.padding(top = 2.dp), fontSize = 12, iconColor = FarmColors.Primary)
             }
             Column(
                 Modifier.clip(RoundedCornerShape(10.dp)).background(FarmColors.PrimaryLight).border(1.dp, FarmColors.Border, RoundedCornerShape(10.dp))
@@ -106,8 +111,8 @@ fun PlotCard(plot: PlotItem, onReserve: (PlotItem) -> Unit) {
         }
         if (plot.soilType != null || plot.waterSource != null) {
             Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                plot.soilType?.let { Pill("🌱 Soil: $it", FarmColors.Background, FarmColors.TextMuted) }
-                plot.waterSource?.let { Pill("💧 $it", FarmColors.InfoBg, FarmColors.Info) }
+                plot.soilType?.let { Pill("Soil: $it", FarmColors.Background, FarmColors.TextMuted, icon = Icons.Rounded.Grass) }
+                plot.waterSource?.let { Pill(it, FarmColors.InfoBg, FarmColors.Info, icon = Icons.Rounded.WaterDrop) }
             }
         }
         plot.description?.let { FText(it, maxLines = 2, color = FarmColors.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
@@ -116,7 +121,7 @@ fun PlotCard(plot: PlotItem, onReserve: (PlotItem) -> Unit) {
             plot.seasons.forEach { s ->
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("🗓 ${s.season}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FarmColors.TextDark)
+                        IconLabel(Icons.Rounded.Event, s.season, color = FarmColors.TextDark, iconColor = FarmColors.Primary, fontWeight = FontWeight.SemiBold)
                         Text("Crops: ${s.allowedCrops.joinToString(", ")}", fontSize = 11.sp, color = FarmColors.TextMuted)
                     }
                     Text("${formatRupees(s.pricePerKg)}/kg", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FarmColors.Primary)
@@ -127,13 +132,13 @@ fun PlotCard(plot: PlotItem, onReserve: (PlotItem) -> Unit) {
             Column(Modifier.weight(1f)) {
                 if (plot.farmerName.isNotEmpty()) {
                     FText("Farmer", variant = TextVariant.Caption)
-                    FText("👨‍🌾 ${plot.farmerName}", variant = TextVariant.Label)
+                    IconLabel(Icons.Rounded.Person, plot.farmerName, color = FarmColors.TextDark, fontSize = 14, fontWeight = FontWeight.SemiBold)
                 }
             }
             Box(
                 Modifier.clip(RoundedCornerShape(10.dp)).background(FarmColors.Primary).clickable { onReserve(plot) }
                     .padding(horizontal = 14.dp, vertical = 10.dp),
-            ) { Text("Reserve Plot →", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+            ) { Text("Reserve Plot", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
         }
     }
 }
@@ -193,14 +198,13 @@ fun PlotDetailView(plot: PlotItem, onReserve: (PlotSeasonItem) -> Unit, onClose:
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FarmCard(Modifier.fillMaxWidth()) {
             FText(plot.title, variant = TextVariant.H1, fontSize = 24.sp)
-            FText(placeLine(plot), variant = TextVariant.Caption)
+            IconLabel(Icons.Rounded.LocationOn, placeLine(plot), fontSize = 12, iconColor = FarmColors.Primary)
             FText("${qtyText(plot.areaAcres)} acres", variant = TextVariant.Label, modifier = Modifier.padding(top = 6.dp))
             val d = detail
             when {
                 d != null -> {
-                    listOfNotNull(d.soilType?.let { "🌱 Soil: $it" }, d.waterSource?.let { "💧 Water: $it" }).forEach {
-                        FText(it, variant = TextVariant.Caption, color = FarmColors.TextBody)
-                    }
+                    d.soilType?.let { IconLabel(Icons.Rounded.Grass, "Soil: $it", color = FarmColors.TextBody, iconColor = FarmColors.Primary) }
+                    d.waterSource?.let { IconLabel(Icons.Rounded.WaterDrop, "Water: $it", color = FarmColors.TextBody, iconColor = FarmColors.Info) }
                     d.description?.takeIf { it.isNotBlank() }?.let { FText(it, modifier = Modifier.padding(top = 6.dp)) }
                 }
                 detailError != null -> {
@@ -282,7 +286,7 @@ fun ReservationSheet(
 
             FText("2. Choose Crop to Cultivate", variant = TextVariant.Label, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                season?.allowedCrops?.forEach { c -> Chip("🌱 ${cap(c)}", crop == c, { crop = c }) }
+                season?.allowedCrops?.forEach { c -> Chip(cap(c), crop == c, { crop = c }, icon = Icons.Rounded.Eco) }
             }
 
             FText("3. Expected Target Harvest (kg)", variant = TextVariant.Label, modifier = Modifier.padding(top = 16.dp))
@@ -358,7 +362,7 @@ private fun reservationStatusPill(status: String) {
 fun MyReservationsList(reservations: List<ReservationItem>, onSelect: (ReservationItem) -> Unit, onExplore: () -> Unit) {
     if (reservations.isEmpty()) {
         Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("🌾", fontSize = 44.sp)
+            Icon(Icons.Rounded.Landscape, null, tint = FarmColors.TextMuted, modifier = Modifier.size(44.dp))
             FText("No Active Reservations", variant = TextVariant.H2)
             FText(
                 "You haven't reserved any farmland plots yet. Browse nearby plots to reserve land and track your own organic crop!",
@@ -375,7 +379,7 @@ fun MyReservationsList(reservations: List<ReservationItem>, onSelect: (Reservati
                     Column(Modifier.weight(1f)) {
                         FText(res.cropName, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FarmColors.TextDark)
                         listOf(res.plotTitle, res.seasonName).filter { it.isNotEmpty() }.takeIf { it.isNotEmpty() }?.let {
-                            FText("🏡 ${it.joinToString(" · ")}", variant = TextVariant.Caption)
+                            IconLabel(Icons.Rounded.Agriculture, it.joinToString(" · "), fontSize = 12)
                         }
                     }
                     reservationStatusPill(res.status)

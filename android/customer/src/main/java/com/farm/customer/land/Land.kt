@@ -75,11 +75,30 @@ data class LandFilterState(
     val season: String? = null,
     val crop: String? = null,
     val soilType: String? = null,
-    val radiusKm: Int = 50,
+    val radiusKm: Int = DEFAULT_LAND_RADIUS_KM,
     val minAcres: Double? = null,
     val maxAcres: Double? = null,
+    /** Only plots with a season at or under this price (rupees per kg). */
+    val maxPricePerKg: Double? = null,
     val sort: LandSortOption = LandSortOption.DISTANCE,
 )
+
+/** The search radius chosen when nothing is set. */
+const val DEFAULT_LAND_RADIUS_KM = 50
+
+/** How many filters differ from the defaults (shown as a count on the Filters button). */
+fun activeLandFilters(f: LandFilterState): Int = listOf(
+    f.radiusKm != DEFAULT_LAND_RADIUS_KM,
+    f.crop != null && f.crop != "ALL",
+    f.soilType != null && f.soilType != "ALL",
+    (f.minAcres ?: 0.0) > 0 || (f.maxAcres ?: 0.0) > 0,
+    (f.maxPricePerKg ?: 0.0) > 0,
+    f.sort != LandSortOption.DISTANCE,
+).count { it }
+
+/** Every crop the loaded plots allow, sorted, for the crop filter. */
+fun cropsOf(plots: List<PlotItem>): List<String> =
+    plots.flatMap { p -> p.seasons.flatMap { it.allowedCrops } }.map { it.lowercase() }.distinct().sorted()
 
 fun filterPlots(plots: List<PlotItem>, f: LandFilterState): List<PlotItem> = plots.filter { plot ->
     val q = f.query.trim().lowercase()
@@ -95,6 +114,7 @@ fun filterPlots(plots: List<PlotItem>, f: LandFilterState): List<PlotItem> = plo
     if (f.radiusKm > 0 && plot.distanceM > f.radiusKm * 1000) return@filter false
     if (f.minAcres != null && f.minAcres > 0 && plot.areaAcres < f.minAcres) return@filter false
     if (f.maxAcres != null && f.maxAcres > 0 && plot.areaAcres > f.maxAcres) return@filter false
+    if (f.maxPricePerKg != null && f.maxPricePerKg > 0 && (plot.minPrice ?: Double.MAX_VALUE) > f.maxPricePerKg) return@filter false
     true
 }
 

@@ -1,5 +1,8 @@
 package com.farm.customer
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Eco
+
 import com.farm.customer.notifications.startPush
 
 import com.farm.customer.notifications.routeFor
@@ -132,7 +135,7 @@ private fun CustomerNav(deepLink: MutableState<String?>) {
                 appName = "Farm Customer",
                 appSubtitle = "Fresh produce & plots directly from farmers",
                 requiredRole = "customer",
-                logoEmoji = "🥕",
+                logoIcon = Icons.Rounded.Eco,
                 onSuccess = { nav.home() },
             )
         }

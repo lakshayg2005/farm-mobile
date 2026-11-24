@@ -1,5 +1,10 @@
 package com.farm.delivery.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+
 import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -87,7 +92,7 @@ private fun StopSheet(title: String, stop: RouteStop, busy: Boolean, onClose: ()
                 Box(
                     Modifier.size(36.dp).clip(CircleShape).background(FarmColors.Border).clickable(enabled = !busy, onClick = onClose),
                     contentAlignment = Alignment.Center,
-                ) { Text("✕", fontSize = 16.sp, color = FarmColors.TextLabel) }
+                ) { Icon(Icons.Rounded.Close, "Close", tint = FarmColors.TextLabel, modifier = Modifier.size(20.dp)) }
             }
             content()
         }
@@ -116,7 +121,7 @@ fun PickupSheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (String) -> Uni
     val allChecked = stop.items.isEmpty() || checked.all { it }
 
     StopSheet("Confirm Farm Pickup", stop, submitting, onClose) {
-        error?.let { Banner("⚠️ $it", FarmColors.ErrorBg, FarmColors.Error) }
+        error?.let { Banner(it, FarmColors.ErrorBg, FarmColors.Error, icon = Icons.Rounded.ErrorOutline) }
 
         FarmCard(Modifier.fillMaxWidth()) {
             FText("Verify Items with Farmer (${stop.items.size} items)", variant = TextVariant.Label)
@@ -135,7 +140,7 @@ fun PickupSheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (String) -> Uni
                             .background(if (on) FarmColors.Primary else Color.White)
                             .border(1.5.dp, if (on) FarmColors.Primary else FarmColors.InputBorder, RoundedCornerShape(4.dp)),
                         contentAlignment = Alignment.Center,
-                    ) { if (on) Text("✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
                     Spacer(Modifier.width(10.dp))
                     Text(
                         item, fontSize = 15.sp,
@@ -152,7 +157,7 @@ fun PickupSheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (String) -> Uni
         }
 
         FarmButton(
-            if (submitting) "Confirming Pickup..." else "📦 Confirm All Items Picked Up",
+            if (submitting) "Confirming Pickup..." else "Confirm All Items Picked Up",
             {
                 submitting = true
                 error = null
@@ -215,7 +220,7 @@ fun ProofOfDeliverySheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (Strin
     val canSubmit = photoUri != null && otpComplete && !submitting
 
     StopSheet("Proof of Delivery", stop, submitting, onClose) {
-        error?.let { Banner("⚠️ $it", FarmColors.ErrorBg, FarmColors.Error) }
+        error?.let { Banner(it, FarmColors.ErrorBg, FarmColors.Error, icon = Icons.Rounded.ErrorOutline) }
 
         FarmCard(Modifier.fillMaxWidth()) {
             FText("1. Delivery Photo Proof (Required)", variant = TextVariant.Label)
@@ -227,13 +232,13 @@ fun ProofOfDeliverySheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (Strin
                     modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(10.dp)),
                 )
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FarmButton("📷 Retake Photo", ::takePhoto, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = !submitting)
-                    FarmButton("🖼️ Choose Different", ::pickPhoto, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = !submitting)
+                    FarmButton("Retake", ::takePhoto, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = !submitting, icon = Icons.Rounded.PhotoCamera)
+                    FarmButton("Choose other", ::pickPhoto, Modifier.weight(1f), variant = ButtonVariant.Secondary, enabled = !submitting, icon = Icons.Rounded.PhotoLibrary)
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PhotoButton("📷", "Take Photo", FarmColors.Primary, Color.White, Modifier.weight(1f), !submitting, ::takePhoto)
-                    PhotoButton("🖼️", "Gallery", FarmColors.InfoBg, FarmColors.Info, Modifier.weight(1f), !submitting, ::pickPhoto)
+                    PhotoButton(Icons.Rounded.PhotoCamera, "Take Photo", FarmColors.Primary, Color.White, Modifier.weight(1f), !submitting, ::takePhoto)
+                    PhotoButton(Icons.Rounded.PhotoLibrary, "Gallery", FarmColors.InfoBg, FarmColors.Info, Modifier.weight(1f), !submitting, ::pickPhoto)
                 }
             }
         }
@@ -266,7 +271,7 @@ fun ProofOfDeliverySheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (Strin
         }
 
         FarmButton(
-            if (submitting) "Submitting Delivery..." else "✅ Complete Delivery",
+            if (submitting) "Submitting Delivery..." else "Complete Delivery",
             {
                 val uri = photoUri ?: return@FarmButton
                 submitting = true
@@ -307,12 +312,12 @@ fun ProofOfDeliverySheet(stop: RouteStop, onClose: () -> Unit, onSuccess: (Strin
 }
 
 @Composable
-private fun PhotoButton(icon: String, label: String, bg: Color, fg: Color, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
+private fun PhotoButton(icon: ImageVector, label: String, bg: Color, fg: Color, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
     Column(
         modifier.clip(RoundedCornerShape(10.dp)).background(bg).clickable(enabled = enabled, onClick = onClick).padding(vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(icon, fontSize = 28.sp)
+        Icon(icon, null, tint = fg, modifier = Modifier.size(30.dp))
         Text(label, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
     }
 }

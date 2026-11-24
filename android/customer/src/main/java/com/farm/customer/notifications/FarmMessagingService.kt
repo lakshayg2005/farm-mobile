@@ -50,6 +50,8 @@ class FarmMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) = PushRegistration.onToken(token)
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // Whatever changed (an order moved on, a route was offered), open screens re-read now.
+        com.farm.core.ui.RefreshSignal.changed()
         val title = message.notification?.title ?: message.data["title"] ?: "Farm"
         val body = message.notification?.body ?: message.data["body"] ?: return
         val target = pushTarget(message.data)

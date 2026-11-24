@@ -1,5 +1,8 @@
 package com.farm.delivery
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LocalShipping
+
 import com.farm.delivery.push.startPush
 
 import com.farm.delivery.push.routeForPush
@@ -97,7 +100,7 @@ private fun DeliveryNav(deepLink: MutableState<String?>) {
                 appName = "Farm Delivery",
                 appSubtitle = "Pooled routes & contactless farm dispatch",
                 requiredRole = "delivery",
-                logoEmoji = "🚚",
+                logoIcon = Icons.Rounded.LocalShipping,
                 onSuccess = { nav.popBackStack("home", inclusive = false) },
             )
         }

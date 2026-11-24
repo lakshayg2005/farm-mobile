@@ -116,4 +116,22 @@ class RouteTest {
         assertEquals(listOf(21.25 to 81.63, 21.25 to 81.63), routeLine(Pool(id = "p1"), stops))
         assertEquals(listOf(21.25 to 81.63, 21.25 to 81.63), routeLine(null, stops))
     }
+
+    @Test fun historyTalliesAndDays() {
+        val stops = listOf(
+            toRouteStop(stop("a", status = "DONE")),
+            toRouteStop(stop("b", stopType = "DROP", seq = 2, status = "DONE")),
+            toRouteStop(stop("c", stopType = "DROP", seq = 3, status = "SKIPPED")),
+        )
+        assertEquals(RouteTally(3, 2, 1, 0), tally(stops))
+        assertEquals("2 of 3 stops done · 1 skipped", tallyText(tally(stops)))
+        assertEquals("All 2 stops done", tallyText(tally(stops.take(2))))
+
+        val today = LocalDate.parse("2026-11-24")
+        assertEquals("Today", historyDayLabel(today, today))
+        assertEquals("Yesterday", historyDayLabel(today.minusDays(1), today))
+
+        val pools = listOf(Pool("old", poolDate = "2026-11-20"), Pool("t1", poolDate = "2026-11-24"), Pool("t2", poolDate = "2026-11-24"))
+        assertEquals(listOf("2026-11-24" to listOf("t1", "t2"), "2026-11-20" to listOf("old")), groupByDay(pools).map { (d, p) -> d to p.map { it.id } })
+    }
 }

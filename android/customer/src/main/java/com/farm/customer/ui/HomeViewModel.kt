@@ -104,6 +104,8 @@ class HomeViewModel : ViewModel() {
     var searchedArea by mutableStateOf(false)
         private set
 
+    /** Every plot the last search returned, before the on-phone filters (for the crop choices). */
+    val allLoadedPlots: List<PlotItem> get() = allPlots
     val plots: List<PlotItem> get() = sortPlots(filterPlots(allPlots, landFilters), landFilters.sort)
 
     private var produceJob: Job? = null
@@ -163,7 +165,7 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    fun onAddedToCart(item: ProduceListing) = toast(true, "Added 1 ${item.unit} ${item.cropName} to cart 🛒")
+    fun onAddedToCart(item: ProduceListing) = toast(true, "Added 1 ${item.unit} ${item.cropName} to cart")
 
     private fun toast(produce: Boolean, msg: String) {
         viewModelScope.launch {

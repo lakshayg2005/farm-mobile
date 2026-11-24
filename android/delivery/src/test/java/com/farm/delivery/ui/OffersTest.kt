@@ -17,8 +17,8 @@ class OffersTest {
     )
 
     @Test fun countsAndDistances() {
-        assertEquals("📦 2 pickups · 🏠 2 drops", offerCounts(offer))
-        assertEquals("📦 1 pickup · 🏠 0 drops", offerCounts(RouteOffer("p", stopCount = 1, pickupCount = 1)))
+        assertEquals("2 pickups · 2 drops", offerCounts(offer))
+        assertEquals("1 pickup · 0 drops", offerCounts(RouteOffer("p", stopCount = 1, pickupCount = 1)))
         assertEquals("1.2 km", formatDistance(1.24))
         assertEquals("850 m", formatDistance(0.85))
     }

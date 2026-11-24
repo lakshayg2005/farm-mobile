@@ -1,5 +1,9 @@
 package com.farm.customer.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+
 import com.farm.core.ui.FarmColors
 
 import androidx.compose.foundation.background
@@ -62,7 +66,7 @@ fun NotificationBell(onClick: () -> Unit, modifier: Modifier = Modifier, backgro
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(background), contentAlignment = Alignment.Center) {
-            Text("🔔", fontSize = 18.sp)
+            Icon(Icons.Rounded.Notifications, null, tint = FarmColors.TextDark, modifier = Modifier.size(22.dp))
         }
         if (badge != null) {
             Box(

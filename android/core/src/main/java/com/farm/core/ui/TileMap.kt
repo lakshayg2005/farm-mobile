@@ -102,7 +102,7 @@ fun meMarker(map: MapView, lat: Double, lng: Double, title: String = "You are he
 private val iconCache = HashMap<String, Drawable>()
 
 /**
- * The marker icon for [pin]: a blue dot for [PinKind.ME], a coloured teardrop with 📦 / 🏠 for
+ * The marker icon for [pin]: a blue dot for [PinKind.ME], a coloured teardrop with a parcel / house for
  * pickups and drops (plus the [MapPin.badge] number), and the tinted default pin otherwise.
  */
 fun pinIcon(context: Context, pin: MapPin, selected: Boolean): Drawable? {
@@ -162,13 +162,7 @@ private fun drawStopPin(d: Float, pin: MapPin, selected: Boolean): Bitmap {
     c.drawCircle(cx, cy, r, p)
     p.color = android.graphics.Color.WHITE
     c.drawCircle(cx, cy, r * 0.72f, p)
-    val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = r * 0.85f
-        textAlign = Paint.Align.CENTER
-        if (pin.muted) alpha = 110
-    }
-    val glyphText = if (pin.kind == PinKind.PICKUP) "📦" else "🏠"
-    c.drawText(glyphText, cx, cy - (glyph.descent() + glyph.ascent()) / 2f, glyph)
+    drawGlyph(c, pin.kind, cx, cy, r * 1.05f, color.toArgb())
     pin.badge?.let { b ->
         val br = 8.5f * d * scale
         val bx = bmp.width - br - 1.5f * d
@@ -186,6 +180,36 @@ private fun drawStopPin(d: Float, pin: MapPin, selected: Boolean): Bitmap {
         c.drawText(b, bx, by - (t.descent() + t.ascent()) / 2f, t)
     }
     return bmp
+}
+
+// Glyphs on a 24 x 24 grid (Material style): a house for drops, a parcel for pickups.
+private const val HOUSE = "M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z"
+private const val PARCEL = "M12,2.5L20.5,7v10L12,21.5 3.5,17V7z"
+private const val PARCEL_LINES = "M3.5,7L12,11.5 20.5,7M12,11.5V21.5M7.75,4.75L16.25,9.25"
+
+private fun scaled(data: String, cx: Float, cy: Float, size: Float): Path {
+    val p = androidx.core.graphics.PathParser.createPathFromPathData(data)
+    val s = size / 24f
+    p.transform(android.graphics.Matrix().apply { setScale(s, s); postTranslate(cx - 12 * s, cy - 12 * s) })
+    return p
+}
+
+/** The pin's glyph in [color], centred on ([cx], [cy]) and [size] wide. */
+private fun drawGlyph(c: Canvas, kind: PinKind, cx: Float, cy: Float, size: Float, color: Int) {
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; style = Paint.Style.FILL }
+    if (kind == PinKind.PICKUP) {
+        c.drawPath(scaled(PARCEL, cx, cy, size), fill)
+        val lines = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = android.graphics.Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = size / 24f * 1.6f
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+        }
+        c.drawPath(scaled(PARCEL_LINES, cx, cy, size), lines)
+    } else {
+        c.drawPath(scaled(HOUSE, cx, cy, size), fill)
+    }
 }
 
 /** osmdroid needs an identifying user agent (OSM tile policy) and a writable cache. */

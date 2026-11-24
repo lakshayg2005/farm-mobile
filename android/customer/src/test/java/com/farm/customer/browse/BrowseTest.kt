@@ -76,4 +76,17 @@ class BrowseTest {
         assertEquals("2.4 km", formatDistance(2400.0))
         assertEquals("12 km", formatDistance(12000.0))
     }
+
+    @Test fun photoBadgeFollowsTheCameraLocation() {
+        assertNull(photoVerification(null)) // no photo: no badge at all
+        val near = photoVerification(ProducePhoto("m", isGeoVerified = true, geoStatus = "VERIFIED", distanceM = 300.0))!!
+        assertTrue(near.isVerified)
+        val screenshot = photoVerification(ProducePhoto("m", geoStatus = "NO_GPS"))!!
+        assertFalse(screenshot.isVerified)
+        assertEquals("Unverified", screenshot.shortLabel)
+        assertTrue(screenshot.description.contains("screenshot"))
+        val far = photoVerification(ProducePhoto("m", geoStatus = "TOO_FAR", distanceM = 4200.0))!!
+        assertEquals("Taken 4.2 km from the farm, not at it.", far.description)
+        assertTrue(photoVerification(ProducePhoto("m", geoStatus = "PENDING"))!!.pending)
+    }
 }

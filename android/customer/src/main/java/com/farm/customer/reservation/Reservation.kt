@@ -96,13 +96,14 @@ data class StageLabel(val label: String, val icon: String)
 
 /** The farmer's crop update stages (land CropUpdateCreate: SOWN, GROWING, FLOWERING). */
 fun cropStageLabel(stage: String): StageLabel = when (stage) {
-    "SOWN" -> StageLabel("Sown", "🌱")
-    "GROWING" -> StageLabel("Growing", "🌿")
-    "FLOWERING" -> StageLabel("Flowering", "🌸")
-    else -> StageLabel(stage.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, "📍")
+    "SOWN" -> StageLabel("Sown", "SOWN")
+    "GROWING" -> StageLabel("Growing", "GROWING")
+    "FLOWERING" -> StageLabel("Flowering", "FLOWERING")
+    else -> StageLabel(stage.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }, "OTHER")
 }
 
 /** "wheat" -> "Wheat", "green_chilli" -> "Green chilli". */
 fun cropName(cropId: String): String = cropId.replace('_', ' ').replace('-', ' ').trim().lowercase().replaceFirstChar { it.uppercase() }
 
 /** Badge text for a crop photo: only a photo the media service verified on site gets the green badge. */
+fun photoBadge(isGeoVerified: Boolean): String = if (isGeoVerified) "Verified on site" else "Unverified"

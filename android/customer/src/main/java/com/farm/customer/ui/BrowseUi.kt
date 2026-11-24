@@ -1,5 +1,11 @@
 package com.farm.customer.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.Icon
+import com.farm.core.ui.IconLabel
+import androidx.compose.ui.graphics.vector.ImageVector
+
 import com.farm.customer.browse.NEAR_ME
 
 import com.farm.core.ui.mePin
@@ -71,12 +77,12 @@ import com.farm.customer.browse.LocationCoords
 import com.farm.customer.browse.ProduceListing
 import com.farm.customer.browse.ProducePhoto
 import com.farm.customer.browse.SortOption
-import com.farm.customer.browse.cropEmoji
 import com.farm.customer.browse.formatDistance
 import com.farm.customer.browse.formatRating
 import com.farm.customer.browse.ratingLabel
 import com.farm.customer.browse.ratingStars
 import com.farm.customer.browse.formatHarvestDate
+import com.farm.customer.browse.photoVerification
 import com.farm.customer.checkout.CartItem
 import com.farm.customer.checkout.CartStore
 import com.farm.customer.checkout.formatRupees
@@ -89,16 +95,41 @@ fun ProduceListing.toCartItem(qty: Double = 1.0) = CartItem(
 fun qtyText(v: Double): String = if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()
 
 @Composable
-fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
+fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    val fg = if (selected) Color.White else FarmColors.TextBody
+    Row(
         modifier
             .clip(RoundedCornerShape(18.dp))
             .background(if (selected) FarmColors.Primary else Color.White)
             .border(1.dp, if (selected) FarmColors.Primary else FarmColors.Border, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else FarmColors.TextBody)
+        if (icon != null) {
+            Icon(icon, null, tint = if (selected) Color.White else FarmColors.Primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(5.dp))
+        }
+        Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = fg)
+    }
+}
+
+@Composable
+fun VerifiedBadge(photo: ProducePhoto?, compact: Boolean, modifier: Modifier = Modifier) {
+    val m = photoVerification(photo) ?: return
+    if (compact) {
+        Pill(m.shortLabel, hex(m.bg), hex(m.fg), modifier, border = hex(m.border), icon = when { m.pending -> Icons.Rounded.HourglassTop; m.isVerified -> Icons.Rounded.Verified; else -> Icons.Rounded.ErrorOutline })
+    } else {
+        Column(
+            modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(hex(m.bg))
+                .border(1.dp, hex(m.border), RoundedCornerShape(10.dp)).padding(12.dp),
+        ) {
+            IconLabel(
+                when { m.pending -> Icons.Rounded.HourglassTop; m.isVerified -> Icons.Rounded.Verified; else -> Icons.Rounded.ErrorOutline }, m.label,
+                color = hex(m.fg), fontSize = 14, fontWeight = FontWeight.Bold,
+            )
+            Text(m.description, fontSize = 12.sp, color = hex(m.fg), modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 
@@ -110,10 +141,11 @@ fun ListingCard(listing: ProduceListing, onOpen: () -> Unit, onAdded: (ProduceLi
             if (photo != null && photo.url.isNotEmpty()) {
                 AsyncImage(model = photo.thumbUrl.ifEmpty { photo.url }, contentDescription = listing.cropName, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             } else {
-                Text("🥕", fontSize = 48.sp, modifier = Modifier.align(Alignment.Center))
+                Icon(Icons.Rounded.Eco, null, tint = FarmColors.Primary.copy(alpha = 0.45f), modifier = Modifier.align(Alignment.Center).size(48.dp))
             }
+            VerifiedBadge(photo, compact = true, modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
             Row(Modifier.align(Alignment.TopEnd).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (listing.isOrganic) Pill("🌱 Organic", FarmColors.Primary, Color.White)
+                if (listing.isOrganic) Pill("Organic", FarmColors.Primary, Color.White, icon = Icons.Rounded.Eco)
                 FavouriteButton(listing.farmId, listing.farmName)
             }
         }
@@ -124,10 +156,10 @@ fun ListingCard(listing: ProduceListing, onOpen: () -> Unit, onAdded: (ProduceLi
                     listing.variety?.let { FText(it, variant = TextVariant.Caption) }
                 }
             }
-            FText("🏡 ${listing.farmName}", variant = TextVariant.Label, modifier = Modifier.padding(top = 6.dp))
+            IconLabel(Icons.Rounded.Agriculture, listing.farmName, Modifier.padding(top = 6.dp), color = FarmColors.TextDark, iconColor = FarmColors.Primary, fontSize = 14, fontWeight = FontWeight.SemiBold)
             FarmRatingText(listing.farmRating, listing.farmRatingCount, Modifier.padding(top = 2.dp))
             Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("📍 ${formatDistance(listing.distanceM)} away", fontSize = 12.sp, color = FarmColors.Primary, fontWeight = FontWeight.SemiBold)
+                IconLabel(Icons.Rounded.LocationOn, "${formatDistance(listing.distanceM)} away", color = FarmColors.Primary, fontSize = 12, fontWeight = FontWeight.SemiBold)
                 Text("  •  ", fontSize = 12.sp, color = FarmColors.InputBorder)
                 FText(formatHarvestDate(listing.harvestDate), variant = TextVariant.Caption)
             }
@@ -139,11 +171,16 @@ fun ListingCard(listing: ProduceListing, onOpen: () -> Unit, onAdded: (ProduceLi
                     }
                     FText("${qtyText(listing.qtyAvailable)} ${listing.unit} in stock", variant = TextVariant.Caption)
                 }
-                Box(
+                Row(
                     Modifier.clip(RoundedCornerShape(10.dp)).background(FarmColors.Primary)
                         .clickable { CartStore.add(listing.toCartItem()); onAdded(listing) }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) { Text("+ Add", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.AddShoppingCart, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -171,7 +208,7 @@ fun FilterSheet(filters: FilterState, onApply: (FilterState) -> Unit, onReset: (
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    FText("🌱 Organic Certified Only", variant = TextVariant.Label)
+                    IconLabel(Icons.Rounded.Eco, "Organic Certified Only", color = FarmColors.TextDark, iconColor = FarmColors.Primary, fontSize = 14, fontWeight = FontWeight.SemiBold)
                     FText("Only show listings grown with natural organic methods", variant = TextVariant.Caption)
                 }
                 Box(
@@ -179,7 +216,7 @@ fun FilterSheet(filters: FilterState, onApply: (FilterState) -> Unit, onReset: (
                         .background(if (draft.organicOnly) FarmColors.Primary else Color.White)
                         .border(1.5.dp, FarmColors.Primary, RoundedCornerShape(6.dp)),
                     contentAlignment = Alignment.Center,
-                ) { if (draft.organicOnly) Text("✓", color = Color.White, fontWeight = FontWeight.Bold) }
+                ) { if (draft.organicOnly) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
             }
             FText("Price Range (₹ per unit)", variant = TextVariant.Label, modifier = Modifier.padding(top = 18.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -216,7 +253,7 @@ fun FavouriteButton(farmId: String, farmName: String, modifier: Modifier = Modif
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(32.dp).clip(CircleShape).background(Color(0xE6FFFFFF)), contentAlignment = Alignment.Center) {
-            Text(if (on) "♥" else "♡", fontSize = 18.sp, color = if (on) FarmColors.Error else FarmColors.TextMuted)
+            Icon(if (on) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = if (on) FarmColors.Error else FarmColors.TextMuted, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -225,13 +262,23 @@ fun FavouriteButton(farmId: String, farmName: String, modifier: Modifier = Modif
 @Composable
 fun FarmRatingText(rating: Double?, count: Int, modifier: Modifier = Modifier) {
     val label = ratingLabel(rating, count)
-    Text(
-        if (rating != null) "${ratingStars(rating)} ${formatRating(rating)} ($count)" else label,
-        fontSize = 12.sp,
-        color = if (rating != null) FarmColors.Warning else FarmColors.TextMuted,
-        fontWeight = if (rating != null) FontWeight.SemiBold else FontWeight.Normal,
-        modifier = modifier.semantics { contentDescription = if (rating != null) "Farm rated ${formatRating(rating)} out of 5 from $count ratings" else label },
-    )
+    val semantics = if (rating != null) "Farm rated ${formatRating(rating)} out of 5 from $count ratings" else label
+    if (rating == null) {
+        Text(label, fontSize = 12.sp, color = FarmColors.TextMuted, modifier = modifier.semantics { contentDescription = semantics })
+        return
+    }
+    Row(modifier.semantics { contentDescription = semantics }, verticalAlignment = Alignment.CenterVertically) {
+        // Five stars filled to the nearest half, then the number and the count.
+        (1..5).forEach { i ->
+            val icon = when {
+                rating >= i - 0.25 -> Icons.Rounded.Star
+                rating >= i - 0.75 -> Icons.Rounded.StarHalf
+                else -> Icons.Rounded.StarBorder
+            }
+            Icon(icon, null, tint = FarmColors.Warning, modifier = Modifier.size(14.dp))
+        }
+        Text(" ${formatRating(rating)} ($count)", fontSize = 12.sp, color = FarmColors.TextLabel, fontWeight = FontWeight.SemiBold)
+    }
 }
 
 /** The same results as the list, as markers on OpenStreetMap tiles; a tapped marker opens a summary card. */
@@ -260,11 +307,12 @@ fun ProduceMapView(listings: List<ProduceListing>, location: LocationCoords, onO
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             FText(selected.cropName, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FarmColors.TextDark)
-                            if (selected.isOrganic) Pill("🌱 Organic", FarmColors.PrimaryLight, FarmColors.Primary, Modifier.padding(start = 6.dp))
+                            if (selected.isOrganic) Pill("Organic", FarmColors.PrimaryLight, FarmColors.Primary, Modifier.padding(start = 6.dp), icon = Icons.Rounded.Eco)
                         }
-                        FText("🏡 ${selected.farmName}" + placeOf(selected)?.let { " · $it" }.orEmpty(), variant = TextVariant.Label)
+                        IconLabel(Icons.Rounded.Agriculture, selected.farmName + placeOf(selected)?.let { " · $it" }.orEmpty(), color = FarmColors.TextDark, iconColor = FarmColors.Primary, fontSize = 14, fontWeight = FontWeight.SemiBold)
                         FarmRatingText(selected.farmRating, selected.farmRatingCount)
-                        FText("📍 ${formatDistance(selected.distanceM)} away  •  ${qtyText(selected.qtyAvailable)} ${selected.unit} left", variant = TextVariant.Caption)
+                        IconLabel(Icons.Rounded.LocationOn, "${formatDistance(selected.distanceM)} away  •  ${qtyText(selected.qtyAvailable)} ${selected.unit} left", fontSize = 12)
+                        VerifiedBadge(selected.photos.firstOrNull(), true, Modifier.padding(top = 6.dp))
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(formatRupees(selected.pricePerUnit), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FarmColors.PrimaryDark)
@@ -273,7 +321,7 @@ fun ProduceMapView(listings: List<ProduceListing>, location: LocationCoords, onO
                 }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FarmButton("View Details", { onOpen(selected) }, Modifier.weight(1f), variant = ButtonVariant.Secondary)
-                    FarmButton("+ Add to Cart", { CartStore.add(selected.toCartItem()); onAdded(selected) }, Modifier.weight(1f))
+                    FarmButton("Add to Cart", { CartStore.add(selected.toCartItem()); onAdded(selected) }, Modifier.weight(1f), icon = Icons.Rounded.AddShoppingCart)
                 }
             }
         }

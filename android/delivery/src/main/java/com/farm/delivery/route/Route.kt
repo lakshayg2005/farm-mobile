@@ -134,6 +134,30 @@ fun mapsUrl(lat: Double, lng: Double, label: String): String =
 /** [count] days before [today], newest first (the History tab). */
 fun pastDays(today: LocalDate, count: Int): List<LocalDate> = (1..count).map { today.minusDays(it.toLong()) }
 
+/** "Today", "Yesterday", else "Mon, 16 Nov" (History headings). */
+fun historyDayLabel(day: LocalDate, today: LocalDate): String = if (day == today) "Today" else dayLabel(day, today)
+
+/** How a route went: stops worked, skipped and still open. */
+data class RouteTally(val total: Int, val done: Int, val skipped: Int, val open: Int)
+
+fun tally(stops: List<RouteStop>): RouteTally = RouteTally(
+    total = stops.size,
+    done = stops.count { it.status == StopStatus.DONE },
+    skipped = stops.count { it.status == StopStatus.SKIPPED },
+    open = stops.count { it.status.open },
+)
+
+/** "5 of 6 stops done · 1 skipped", "All 4 stops done". */
+fun tallyText(t: RouteTally): String {
+    val head = if (t.done == t.total && t.total > 0) "All ${t.total} stops done" else "${t.done} of ${t.total} stops done"
+    return listOfNotNull(head, t.skipped.takeIf { it > 0 }?.let { "$it skipped" }, t.open.takeIf { it > 0 }?.let { "$it open" })
+        .joinToString(" · ")
+}
+
+/** Routes grouped by their date (YYYY-MM-DD), newest day first; routes keep the server's order. */
+fun groupByDay(pools: List<Pool>): List<Pair<String, List<Pool>>> =
+    pools.groupBy { it.poolDate }.toList().sortedByDescending { it.first }
+
 /** "Yesterday", else "Mon, 16 Nov". */
 fun dayLabel(day: LocalDate, today: LocalDate): String =
     if (day == today.minusDays(1)) "Yesterday"

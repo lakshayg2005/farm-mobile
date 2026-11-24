@@ -155,9 +155,39 @@ fun formatHarvestDate(date: String): String = runCatching {
     "${d.dayOfMonth} ${MONTHS[d.monthValue - 1]} ${d.year}"
 }.getOrDefault(date)
 
-fun cropEmoji(cropId: String): String = when (cropId) {
-    "tomato" -> "🍅"; "spinach" -> "🥬"; "onion" -> "🧅"; "potato" -> "🥔"; "mango" -> "🥭"; "okra" -> "🌿"; "carrot" -> "🥕"
-    else -> "🥕"
+data class PhotoVerification(
+    val isVerified: Boolean, val label: String, val shortLabel: String,
+    val bg: String, val fg: String, val border: String, val description: String,
+    /** Still being checked: neither verified nor unverified yet. */
+    val pending: Boolean = false,
+)
+
+/**
+ * The badge of a listing photo. The media service reads the camera's GPS point from the photo and
+ * calls it verified only when that point lies within 2 km of the farm. A photo with no location
+ * (a screenshot, an edited or a downloaded image) or taken somewhere else is unverified.
+ * Null for a listing without a photo: there is nothing to verify.
+ */
+fun photoVerification(photo: ProducePhoto?): PhotoVerification? {
+    if (photo == null) return null
+    if (photo.geoStatus == "PENDING" && !photo.isGeoVerified) {
+        return PhotoVerification(false, "Checking photo", "Checking", "#E6E9EB", "#4B5258", "#C9CFD4", "Checking where this photo was taken.", pending = true)
+    }
+    if (photo.isGeoVerified) {
+        val dist = photo.distanceM?.takeIf { it > 0 }?.let { ", ${formatDistance(it)} from the farm" } ?: ""
+        return PhotoVerification(
+            true, "Verified Farm Photo", "Verified", "#E3F1E9", "#155C3A", "#1D7A4D",
+            "Taken at the farm: the camera's location matches the farm$dist.",
+        )
+    }
+    val desc = when (photo.geoStatus) {
+        "TOO_FAR" -> photo.distanceM?.takeIf { it > 0 }?.let { "Taken ${formatDistance(it)} from the farm, not at it." }
+            ?: "Taken away from the farm."
+        "NO_GPS" -> "This photo has no camera location (for example a screenshot, an edited or a downloaded image), so it cannot be matched to the farm."
+        "NO_REFERENCE" -> "The farm's location is not set, so this photo could not be checked."
+        else -> photo.rejectReason ?: "Where this photo was taken could not be checked."
+    }
+    return PhotoVerification(false, "Unverified Photo", "Unverified", "#FBEAE7", "#C2412D", "#C2412D", desc)
 }
 
 // ─── Data: the catalog service only. A failed call throws; nothing is invented. ─────────────
